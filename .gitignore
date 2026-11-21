@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# APIキーなど
+.env
+
+# 著作権のあるデモ曲（J-POP）はここに置く。中身はpushしない
+backend/private/*
+!backend/private/.gitkeep
+
+# エディタ・OS
+.vscode/
+.DS_Store
+Thumbs.db
