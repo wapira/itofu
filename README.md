@@ -37,7 +37,7 @@ MusicXML
 ## フォルダ構成
 
 ```
-frontend/              画面
+frontend/              画面（設計は frontend/README.md）
 backend/
   koto/
     constants.py       箏の定数：弦名、平調子、押し手（共有）
@@ -187,17 +187,7 @@ backend/privateの曲と.envはコミットしません。privateはイメージ
 
 ### ④ → フロント
 
-`candidates`（調弦の候補3案）の中に、それぞれ `measures`（小節 → 拍 → 音の3段）が入る。1拍の中の音は、リストの順に上から縦に書く。
-
-| JSON | 楽譜に書くもの |
-|---|---|
-| `{ "string": "七" }` | 七 |
-| `{ "string": "九", "oshi": "ヲ" }` | ヲ九（弱押し） |
-| `{ "string": "九", "oshi": "オ" }` | オ九（強押し） |
-| `{ "string": "七", "repeat": true }` | 、（前の音の繰り返し） |
-| `{ "rest": true }` | ⊙（休符・伸ばし） |
-
-調弦の説明文（「平調子（一＝E）より六を全音上げる」など）は④で作る。
+JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) にまとめています（フロントとの約束はこちらが正）。
 
 ## ③ アルゴリズム
 
