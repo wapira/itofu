@@ -52,19 +52,98 @@ backend/
   private/             J-POPのデモ曲を置く場所（GitHubには上がらない）
 ```
 
-追加予定：`docker-compose.yml`・`backend/Dockerfile`（アルゴリズム担当）、`backend/main.py`（API本体、解析担当）、`backend/koto/schemas.py`（部品の間のデータの型、解析担当が作成・バックエンドの2人で合意）
+Docker環境とAPIの土台として、次のファイルを追加済みです。
 
-## 動かし方
+- `docker-compose.yml`：バックエンドの起動・ポート公開・自動リロード設定
+- `backend/Dockerfile`：Python 3.14.8と依存ライブラリの環境構築
+- `backend/.dockerignore`：イメージに含めないファイルの指定
+- `backend/main.py`：APIの土台、CORS設定、`/api/health`（今後は解析担当が拡張）
+- `.env.example`：環境変数の記入例
 
-Docker環境は準備中。それまでは手元で次のように確認できる。
+追加予定：`backend/koto/schemas.py`（部品の間のデータの型、解析担当が作成・バックエンドの2人で合意）。
+`parse.py`、`assign.py`、`tuning.py`、`grid.py`、`to_json.py`はファイルのみ用意済みで、処理はこれから実装します。
 
+## Dockerでバックエンドを開発する
+
+必要なもの：Git、起動済みのDocker Desktop（またはDocker EngineとCompose）。
+ホストPCへのPythonのインストールは不要です。
+Python 3.14.8を使い、ベースイメージもダイジェストで固定しています。
+直接使うライブラリとその依存ライブラリのバージョンをbackend/requirements.txtで固定しています。
+動作確認済みのプラットフォームはLinux ARM64（Apple SiliconのDocker）です。
+
+### 初回の起動
+
+リポジトリをcloneし、itofuフォルダで実行します。
+
+```bash
+docker compose up --build
 ```
-cd backend
-pip install -r requirements.txt
-python run_local.py
+
+- APIドキュメント：http://localhost:8000/docs
+- 動作確認：http://localhost:8000/api/health （`{"status":"ok"}`を返す）
+- まだ楽譜変換のAPIは実装していません。main.pyはAPI担当者が拡張する土台です。
+
+backendフォルダをコンテナの/appと共有しています。Pythonコードを保存するとuvicornの
+--reloadでAPIが再起動します。requirements.txtやDockerfileを変えた場合は、ライブラリを
+追加したことをチームに伝えたうえで、`docker compose up --build`で作り直してください。
+リロード設定は開発用です。本番公開時は別の起動設定を用意してください。
+
+### 動作確認用スクリプト
+
+API起動中なら、別のターミナルで実行します。
+
+```bash
+docker compose exec backend python run_local.py
 ```
 
-Docker環境ができたら、APIは http://localhost:8000 で動き、http://localhost:8000/docs からブラウザで楽譜をアップロードして結果を確認できる。フロント担当はDocker不要で、このAPIを呼ぶだけ。
+### 停止・再起動・ログ
+
+起動中のターミナルでCtrl+Cを押すと停止します。
+
+```bash
+docker compose down
+docker compose up
+docker compose logs --tail=100 backend
+```
+
+`docker compose up`はフォアグラウンドで動くので、以降のコマンドは別のターミナルで実行します。
+
+### 環境変数とフロント接続
+
+標準設定では.envなしで起動できます。変更する場合は、リポジトリ直下で次を実行します。
+
+```bash
+cp .env.example .env
+```
+
+.envはGit管理しません。APIキーなどの秘密情報は.env.exampleに書かないでください。
+Compose用の.envの値がすべて自動的にコンテナへ渡るわけではありません。
+将来APIキーを追加する場合は、必要な項目だけComposeのenvironmentで渡してください。
+
+同じPCのフロントはhttp://localhost:8000に接続します。
+CORS_ORIGINSは許可するフロントのURL（スキーム・ホスト・ポート）をカンマで区切って指定します。
+標準ではlocalhostと127.0.0.1の3000番・5173番を許可しています。
+
+別のPCから同じWi-Fi経由で使う場合：
+
+1. APIを動かすPCの.envでBACKEND_BIND_ADDRESS=0.0.0.0に変更します。
+2. CORS_ORIGINSに、ブラウザで開くフロント画面のURLを追加します。
+3. `docker compose up -d --build`で起動設定を反映します。
+4. フロントのAPI接続先をhttp://APIを動かすPCのLAN内IPアドレス:8000に変更します。
+
+0.0.0.0は待ち受け用の指定です。ブラウザの接続先にはLAN内IPアドレスを使います。
+APIを動かすPCは起動したままにします。Wi-Fiの端末間通信制限やファイアウォールで接続できない場合があります。
+この構成は開発用で、インターネットへの本番公開用ではありません。
+ポートが使用中なら.envのBACKEND_PORTを8001などに変更し、接続URLのポートも合わせます。
+
+### Gitでの共同開発
+
+各自のPCでDockerを動かし、コードは作業用ブランチとプルリクエストで共有します。
+constants.py、schemas.py、requirements.txtの変更は計画どおりDiscordで一言伝えてください。
+requirements.txtにDocker起動用ライブラリを追加し、main.pyに最小のAPI土台を置いています。
+API担当者はこのmain.pyを引き継いでください。
+backend/privateの曲と.envはコミットしません。privateはイメージにも含めませんが、
+開発時はbackend全体を共有するため自分のコンテナからは利用できます。
 
 ## 箏の基本
 
@@ -73,6 +152,10 @@ Docker環境ができたら、APIは http://localhost:8000 で動き、http://lo
 - 押し手：弦を押して音を上げる。弱押し（ヲ）＝半音、強押し（オ）＝全音
 
 ## API
+
+現在実装済みなのは`GET /api/health`です。`POST /api/analyze`は実装予定、`POST /api/omr`は余裕があれば追加します。
+`/docs`は開けますが、楽譜アップロードによる変換確認は`/api/analyze`の実装・接続後に行います。
+フロント担当はDocker不要で、バックエンド担当が起動したAPIに接続できます。別PCからの接続方法は上の「環境変数とフロント接続」を参照してください。
 
 | メソッド | パス | 内容 |
 |---|---|---|
@@ -145,7 +228,7 @@ Docker環境ができたら、APIは http://localhost:8000 で動き、http://lo
 
 ## 作る順番
 
-0. 環境：Dockerで起動すると `/docs` が開く（アルゴリズム担当）、`main.py` の土台とCORS設定（解析担当）
+0. 環境（初期構築済み）：Dockerで起動すると `/docs` が開く。`main.py`にAPIの土台とCORS設定を用意済み。解析担当がAPI本体を拡張する
 1. 型：`schemas.py` を作ってバックエンドの2人で確認
 2. 並行して進める
    - 解析担当：`parse.py`。さくらさくらで音のリストが出る
