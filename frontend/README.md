@@ -80,7 +80,7 @@
 | 項目 | 意味 |
 |---|---|
 | `title` / `composer` / `tempo` / `time` | 曲名、作曲者、テンポ（♩=いくつ）、拍子 |
-| `candidates` | 調弦の候補3案（A そのまま／B バランス／C 押し手ゼロ） |
+| `candidates` | 調弦の候補3案（A そのまま／B バランス／C 押し手ゼロ）。必ず3件。C は押し手0にできない曲では `label` が「押し手最少」になる（`oshiCount` が1以上）ので、ラベルは固定せず `label` をそのまま表示する |
 | `description` | 調弦の説明文 |
 | `changedStrings` | 平調子から変える弦の本数 |
 | `oshiCount` | 押し手の回数 |
