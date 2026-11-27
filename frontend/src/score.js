@@ -117,8 +117,6 @@ function renderBeat(beat) {
     const cell = document.createElement('div');
     cell.className = 'beat-cell';
 
-    console.log('beat', beat)
-
     beat.forEach((note) => {
         if (note.rest) {
             const mark = document.createElement('span');
