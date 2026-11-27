@@ -3,6 +3,7 @@
   - 弦番号 → 漢字（七など）、押し手 → 「ヲ」「オ」
   - 調弦の13本を音名（オクターブなし）にする
   - 調弦の説明文を changes から作る（例：平調子（一＝E）より六を全音上げる）
+  - 同じ調弦の案は1つにまとめる
 """
 from .constants import OSHI, STRING_NAMES
 from .grid import build_grid
@@ -41,7 +42,25 @@ def _item_to_json(item: dict) -> dict:
     return out
 
 
+def unique_candidates(candidates: list[Candidate]) -> list[Candidate]:
+    """同じ調弦の案は、先に出てきた1つだけ残す（A → B → C の順）。
+
+    調弦が同じなら弦の割り当ても同じになるので、調弦だけで比べる。
+    例：B と C が同じなら A と B だけ、3つとも同じなら A だけ。
+    """
+    seen: set[tuple[int, ...]] = set()
+    result = []
+    for c in candidates:
+        key = tuple(c.tuning)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(c)
+    return result
+
+
 def build_response(score: Score, candidates: list[Candidate]) -> dict:
+    candidates = unique_candidates(candidates)
     return {
         "title": score.title,
         "composer": score.composer,
