@@ -10,7 +10,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from koto.parse import parse_score
-from koto.provisional import provisional_candidates
+from koto.tuning import generate_candidates
 from koto.to_json import build_response
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5MB
@@ -64,8 +64,7 @@ def analyze(file: UploadFile = File(..., description="MusicXML（.musicxml / .xm
         raise HTTPException(400, "楽譜に音が見つかりませんでした")
 
     try:
-        # TODO: tuning.py ができたら、3案を出す処理に差し替える
-        candidates = provisional_candidates(score.notes)
+        candidates = generate_candidates(score.notes)
     except ValueError as e:
         raise HTTPException(422, f"箏で弾けない音があります：{e}")
 

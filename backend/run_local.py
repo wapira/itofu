@@ -39,11 +39,11 @@ def main():
         return
 
     from koto.parse import parse_score
-    from koto.provisional import provisional_candidates
     from koto.to_json import build_response
+    from koto.tuning import generate_candidates
 
     score = parse_score(args[0])
-    data = build_response(score, provisional_candidates(score.notes))
+    data = build_response(score, generate_candidates(score.notes))
 
     if "--text" in sys.argv:
         print(f"{data['title']} / {data['composer']} / ♩={data['tempo']} / "
