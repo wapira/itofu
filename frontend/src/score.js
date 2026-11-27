@@ -45,7 +45,7 @@ function updatePillar(data, candidate) {
     tuningName.textContent = candidate.label;
 
     const timeSig = document.createElement('p');
-    timeSig.textContent = `${data.time.beats}分の${data.time.beatType}拍子`;
+    timeSig.textContent = `${data.time.beatType}分の${data.time.beats}拍子`;
 
     const tempoP = document.createElement('p');
     tempoP.textContent = `♩＝${data.tempo}`;
@@ -120,8 +120,8 @@ function renderBeat(beat) {
     beat.forEach((note) => {
         if (note.rest) {
             const mark = document.createElement('span');
-            mark.className = 'rest-mark';
-            mark.textContent = '⊙';
+            mark.className = note.short ? 'short-rest-mark' : 'rest-mark';
+            mark.textContent = note.short ? '△' : '⊙';
             cell.appendChild(mark);
             return;
         }

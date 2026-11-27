@@ -6,23 +6,17 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
  * 
  */
 export async function analyzeFile(file) {
-    // TODO: API 有効化後に削除（遅延込み）
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const res = await fetch('/sample.json');
-    return res.json();
-
-    try {
-        const fd = new FormData();
-        fd.append('file', file);
-        const res = await fetch(`${API_BASE}/api/analyze`, {
-            method: 'POST',
-            body: fd,
-        });
-        if (!res.ok) throw new Error('解析に失敗しました');
-        return res.json();
-    } catch {
-        // TODO: error
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${API_BASE}/api/analyze`, {
+        method: 'POST',
+        body: fd,
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail || '解析に失敗しました');
     }
+    return res.json();
 }
 
 
