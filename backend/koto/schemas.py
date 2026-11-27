@@ -29,6 +29,8 @@ class Score:
     beats: int          # 拍子の分子（4/4 の 4）
     beat_type: int      # 拍子の分母（4/4 の 4）
     notes: list[Note] = field(default_factory=list)
+    measure_count: int = 0  # 小節の数（タイで伸ばすだけの小節も数える）。0なら notes から数える
+    key_sharps: int = 0  # 調号の#の数（♭はマイナス。♭2つなら -2）。音名を♭で書くかに使う
 
 
 # ---------- ③ → ④ ----------

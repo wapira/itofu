@@ -28,11 +28,13 @@ SHORT_REST = {"rest": True, "short": True}
 
 
 def build_grid(notes: list[Note], assignments: list[Assignment | None],
-               beats_per_measure: int) -> list[list[list[dict]]]:
+               beats_per_measure: int,
+               measure_count: int = 0) -> list[list[list[dict]]]:
     if len(notes) != len(assignments):
         raise ValueError("notes と assignments の長さが違います")
 
-    measure_count = max((n.measure for n in notes), default=-1) + 1
+    # 小節の数。タイで伸ばすだけの小節は notes に出てこないので、measure_count で受け取る
+    measure_count = max(measure_count, max((n.measure for n in notes), default=-1) + 1)
     # cells[小節][拍] = [(開始位置, 要素), ...]
     cells: list[list[list[tuple[float, dict]]]] = [
         [[] for _ in range(beats_per_measure)] for _ in range(measure_count)

@@ -6,12 +6,15 @@
   - 1小節に声部（voice）が複数あるときは1つ目だけ使う
   - タイでつながった音は1つにまとめる（始まりの小節・位置に置き、長さを足す）
   - 装飾音（長さ0の音）は無視する
+  - 曲の最後に続く空の小節（休符だけの小節）は取り除く
 
 拍の単位は拍子の分母（4/4 なら4分音符、6/8 なら8分音符が1拍）。
 """
 from pathlib import Path
 
-from music21 import chord, converter, meter, stream, tempo
+import math
+
+from music21 import chord, converter, key, meter, stream, tempo
 
 from .schemas import Note, Score
 
@@ -52,6 +55,10 @@ def parse_score(source: str | Path | bytes) -> Score:
                 notes.append(Note(midi=midi, measure=index, offset=offset,
                                   beats=length, rest=False))
 
+    measure_count = _last_sounding_measure(notes, beats)
+    if measure_count:
+        notes = [n for n in notes if n.measure < measure_count]
+
     md = s.metadata
     return Score(
         title=(md.bestTitle if md else None) or "",
@@ -60,7 +67,28 @@ def parse_score(source: str | Path | bytes) -> Score:
         beats=beats,
         beat_type=beat_type,
         notes=notes,
+        measure_count=measure_count,
+        key_sharps=_key_sharps(part),
     )
+
+
+def _last_sounding_measure(notes: list[Note], beats: int) -> int:
+    """最後の音が鳴り終わる小節までの小節数。音が1つもなければ 0。
+
+    これより後ろの小節（休符だけの小節）は取り除く。MuseScore で楽譜を作ると、
+    使っていない小節が全休符のまま残ることがあるため。
+    タイで次の小節まで伸びている音は、伸ばしている小節まで数える。
+    """
+    ends = [n.measure * beats + n.offset + n.beats for n in notes if not n.rest]
+    if not ends:
+        return 0
+    return math.ceil(max(ends) / beats - 1e-6)
+
+
+def _key_sharps(part) -> int:
+    """最初の調号の#の数（♭ならマイナス）。調号がなければ 0。"""
+    found = part.recurse().getElementsByClass(key.KeySignature).first()
+    return found.sharps if found is not None else 0
 
 
 def _time_signature(part) -> tuple[int, int]:
