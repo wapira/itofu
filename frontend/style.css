@@ -401,13 +401,16 @@ body {
 }
 
 .tuning-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  display: flex;
+  justify-content: center;
   gap: 1.35rem;
+  flex-wrap: wrap;
   margin-top: 1rem;
 }
 
 .tuning-card {
+  width: calc((100% - 2 * 1.35rem) / 3);
+  min-width: 260px;
   position: relative;
   background: #fffdf9;
   border: 1.5px solid var(--gold-light);
@@ -803,6 +806,11 @@ body {
 .rest-mark {
   color: var(--ink-muted);
   font-size: 0.95rem;
+}
+
+.short-rest-mark {
+  color: var(--ink-muted);
+  font-size: 0.9rem;
 }
 
 .repeat-mark {

@@ -70,7 +70,8 @@ function showStep(stepNumber) {
  */
 function handleData(json) {
     state.data = json;
-    state.selectedCandidateId = 'B';
+    const hasB = json.candidates.some((c) => c.id === 'B');
+    state.selectedCandidateId = hasB ? 'B' : json.candidates[0].id;
     errorEl.hidden = true;
 
     renderTuningCards(state, onSelectCandidate);
