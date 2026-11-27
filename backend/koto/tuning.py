@@ -104,7 +104,7 @@ def _make_candidate(
 def generate_candidates(
     notes: list[Note], *, change_cost: int = DEFAULT_CHANGE_COST,
 ) -> list[Candidate]:
-    """Score.notesを受け取り、A/B/Cの順でCandidateを必ず3件返す。
+    """Score.notesを受け取り、A/B/Cの順でCandidateを返す（AがなければB/C）。
 
     A：平調子の形を維持し、曲の全音を出せる基音から押し手最少のもの。
     B：押し手回数＋change_cost×変更弦数を最少にする。
@@ -117,8 +117,8 @@ def generate_candidates(
     同点は変更半音数、基準音(E4)への近さ等で決め、結果を固定する。
     A/B/Cが同じ調弦になることもある（区別のために不要な変更はしない）。
 
-    平調子では全音を出せない曲は、Aを成立させられないのでValueError。
-    全条件を満たす調弦がない場合もValueError。音の省略・移調はしない。
+    平調子では全音を出せない曲はAだけを省略し、B/Cを返す。
+    B/Cも全条件を満たす調弦がない場合はValueError。音の省略・移調はしない。
     """
     if type(change_cost) is not int or change_cost <= 0:
         raise ValueError("change_costは正の整数で指定してください")
@@ -145,13 +145,10 @@ def generate_candidates(
         if all(midi in playable for midi in counts):
             oshi = sum(count for midi, count in counts.items() if midi not in tuning)
             flats.append((oshi, abs(base - DEFAULT_BASE), base))
-    if not flats:
-        raise ValueError(
-            "平調子のままでは全音を出せず、A「そのまま」を生成できません。"
-            "音を省略せず3案を返すには、チームでAの扱いを決める必要があります。"
-        )
-    _, _, base_a = min(flats)
-    candidate_a = _make_candidate(notes, [base_a + d for d in HIRAJOSHI], base_a, "A")
+    result: list[Candidate] = []
+    if flats:
+        _, _, base_a = min(flats)
+        result.append(_make_candidate(notes, [base_a + d for d in HIRAJOSHI], base_a, "A"))
 
     best: dict[str, tuple[tuple, int, _State]] = {}
     # 最低弦はbase-19、最高音はbase+33まで。届かない基音を先に除外。
@@ -167,7 +164,6 @@ def generate_candidates(
 
     if len(best) != 2:
         raise ValueError("指定された調弦の制約では、曲の全音を演奏できません")
-    result = [candidate_a]
     for mode in ("B", "C"):
         _, base, state = best[mode]
         result.append(_make_candidate(notes, list(state[3]), base, mode))
