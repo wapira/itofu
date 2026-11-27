@@ -1,0 +1,50 @@
+{
+  "title": "さくらさくら",
+  "composer": "日本古謡",
+  "tempo": 80,
+  "time": { "beats": 4, "beatType": 4 },
+  "candidates": [
+    {
+      "id": "A",
+      "label": "そのまま",
+      "description": "平調子（一＝E）",
+      "changedStrings": 0,
+      "oshiCount": 2,
+      "tuning": ["E", "A", "B", "C", "E", "F", "A", "B", "C", "E", "F", "A", "B"],
+      "measures": [
+        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九", "oshi": "ヲ" } ], [ { "string": "八" } ] ],
+        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六", "oshi": "オ" } ], [ { "rest": true } ] ]
+      ]
+    },
+    {
+      "id": "B",
+      "label": "バランス",
+      "description": "平調子（一＝E）より六を全音上げる",
+      "changedStrings": 1,
+      "oshiCount": 1,
+      "tuning": ["E", "A", "B", "C", "E", "G", "A", "B", "C", "E", "F", "A", "B"],
+      "measures": [
+        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九", "oshi": "ヲ" } ], [ { "string": "八" } ] ],
+        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六" } ], [ { "rest": true } ] ]
+      ]
+    },
+    {
+      "id": "C",
+      "label": "押し手ゼロ",
+      "description": "平調子（一＝E）より六を全音、九を半音上げる",
+      "changedStrings": 2,
+      "oshiCount": 0,
+      "tuning": ["E", "A", "B", "C", "E", "G", "A", "B", "C#", "E", "F", "A", "B"],
+      "measures": [
+        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九" } ], [ { "string": "八" } ] ],
+        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六" } ], [ { "rest": true } ] ]
+      ]
+    }
+  ]
+}

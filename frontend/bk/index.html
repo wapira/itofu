@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>和楽譜・縦譜変換器 ― 調弦見極め＆縦譜生成</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;700;800&family=Zen+Old+Mincho:wght@600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 和モダン・ヘッダー（七宝つなぎ文様＋金箔ライン） -->
+  <header class="wa-header no-print">
+    <div class="shippo-pattern"></div>
+    <div class="header-inner">
+      <div class="kamon-emblem" aria-hidden="true">
+        <span>三</span>
+      </div>
+      <div class="header-titles">
+        <p class="header-sub">五線譜（MusicXML）より伝統縦譜を自動生成</p>
+        <h1>和楽譜・縦譜変換器</h1>
+      </div>
+      <div class="hanko-seal" aria-hidden="true">縦譜<br>生成</div>
+    </div>
+    <div class="gold-foil-bar"></div>
+  </header>
+
+  <!-- 巻物風ステップナビゲーション（序・破・急） -->
+  <nav class="scroll-stepper no-print" aria-label="進行手順">
+    <button type="button" class="step-pill active" id="nav-step-1" data-step="1">
+      <span class="step-kanji">序</span>
+      <span class="step-label">楽譜の読み込み</span>
+    </button>
+    <span class="step-divider">―◆―</span>
+    <button type="button" class="step-pill" id="nav-step-2" data-step="2" disabled>
+      <span class="step-kanji">破</span>
+      <span class="step-label">調弦三案の比較</span>
+    </button>
+    <span class="step-divider">―◆―</span>
+    <button type="button" class="step-pill" id="nav-step-3" data-step="3" disabled>
+      <span class="step-kanji">急</span>
+      <span class="step-label">縦譜の表示・印刷</span>
+    </button>
+  </nav>
+
+  <main class="container">
+    <!-- ==================== 序の章：アップロード画面 ==================== -->
+    <section id="screen-upload" class="wa-panel active">
+      <div class="panel-header">
+        <span class="chapter-badge">序の章</span>
+        <h2>五線譜データ（MusicXML）を納める</h2>
+        <p class="panel-desc">お手持ちの <code>.musicxml</code> または <code>.xml</code> ファイルを選択してください。すべての解析はお使いのブラウザ内のみで完結します。</p>
+      </div>
+
+      <div id="drop-zone" class="washi-dropzone" tabindex="0" role="button" aria-label="MusicXMLファイルをアップロード">
+        <div class="dropzone-corner tl"></div>
+        <div class="dropzone-corner tr"></div>
+        <div class="dropzone-corner bl"></div>
+        <div class="dropzone-corner br"></div>
+        <div class="dropzone-icon">🎼</div>
+        <p class="dropzone-main">ここに MusicXML ファイルをドラッグ＆ドロップ</p>
+        <p class="dropzone-sub">またはクリックして端末からファイルを選択（.xml / .musicxml）</p>
+        <input type="file" id="file-input" accept=".xml,.musicxml,text/xml,application/xml" hidden>
+      </div>
+
+      <div id="upload-error" class="error-banner" hidden></div>
+
+      <div class="sample-box">
+        <div class="sample-title">
+          <span class="gold-diamond">◆</span> お試し用・内蔵和旋律データ（即座に体験）
+        </div>
+        <div class="sample-buttons">
+          <button type="button" class="wa-btn wa-btn-secondary" data-sample="sakura">
+            🌸 「さくらさくら」を読み込む
+          </button>
+          <button type="button" class="wa-btn wa-btn-secondary" data-sample="kojo">
+            🌙 「荒城の月」風旋律を読み込む
+          </button>
+          <button type="button" class="wa-btn wa-btn-secondary" data-sample="kuroda">
+            🍶 「黒田節」風旋律を読み込む
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 破の章：調弦の３つの候補を比べる画面 ==================== -->
+    <section id="screen-tuning" class="wa-panel" hidden>
+      <div class="panel-header">
+        <span class="chapter-badge">破の章</span>
+        <h2>弾きやすい調弦の三案を見比べる</h2>
+        <div id="song-meta-summary" class="song-meta-ribbon"></div>
+      </div>
+
+      <div id="tuning-cards" class="tuning-grid">
+        <!-- JSで3つの調弦候補カードを動的生成 -->
+      </div>
+
+      <div class="panel-actions">
+        <button type="button" id="btn-back-upload" class="wa-btn wa-btn-ghost">← 別の楽譜を選ぶ</button>
+      </div>
+    </section>
+
+    <!-- ==================== 急の章：選んだ案の縦譜表示＆印刷画面 ==================== -->
+    <section id="screen-score" class="wa-panel" hidden>
+      <div class="score-toolbar no-print">
+        <div class="toolbar-left">
+          <button type="button" id="btn-back-tuning" class="wa-btn wa-btn-ghost">← 調弦選択へ戻る</button>
+          <div class="quick-switch">
+            <label for="tuning-switcher">調弦切替：</label>
+            <select id="tuning-switcher" class="wa-select"></select>
+          </div>
+        </div>
+        <div class="toolbar-right">
+          <button type="button" id="btn-print" class="wa-btn wa-btn-vermilion">
+            🖨️ この縦譜を印刷・PDF保存する
+          </button>
+        </div>
+      </div>
+
+      <!-- 印刷対象となる伝統縦譜用紙 -->
+      <div class="tatefu-paper" id="tatefu-paper">
+        <div class="tatefu-outer-frame">
+          <div class="tatefu-inner-frame">
+            <!-- 右端の縦書き曲名・調弦柱 -->
+            <aside class="tatefu-title-pillar">
+              <div class="pillar-stamp">和楽縦譜</div>
+              <h2 id="score-title" class="vertical-title">無題</h2>
+              <div class="pillar-meta">
+                <p id="score-tuning-name" class="vertical-tuning">本調子</p>
+                <p id="score-tuning-notes" class="vertical-notes">一の糸：D4 ／ 二の糸：G4 ／ 三の糸：D5</p>
+                <p id="score-time-sig" class="vertical-timesig">四分の四拍子</p>
+              </div>
+            </aside>
+
+            <!-- 右から左へ小節列が流れる縦譜本体 -->
+            <div class="tatefu-columns-wrapper">
+              <div id="tatefu-grid" class="tatefu-grid">
+                <!-- JSで縦譜列を動的描画 -->
+              </div>
+            </div>
+          </div>
+
+          <footer class="tatefu-legend">
+            <span>【凡例】左列：三の糸 ／ 中列：二の糸 ／ 右列：一の糸</span>
+            <span>数字：勘所（0＝開放弦、1＝半音上…）</span>
+            <span>縦棒（｜）：八分音符連桁 ／ 〇：休符 ／ 赤二重線：曲終止</span>
+          </footer>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wa-footer no-print">
+    <p>ブラウザ完結型・和楽器縦譜変換システム（外部通信なし）</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
