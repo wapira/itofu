@@ -5,15 +5,16 @@ PDF・PNGを読み取り、原本と五線譜を見比べて修正してから�
 58ハッカソン2026（テーマ「ito」）の作品です。
 
 - **ペルソナ**：部活でJ-POPを弾きたいけど、五線譜を箏の楽譜に書き直すのが大変な人
-- **使い方**：MusicXMLをアップロード → 調弦の候補3案（そのまま／バランス／押し手ゼロ）から選ぶ → その調弦に合わせた縦譜が表示される
+- **使い方**：MusicXMLをアップロード → 調弦の候補1〜3案（そのまま／バランス／押し手ゼロ）から選ぶ → その調弦に合わせた糸譜が表示される
+- **PDF・PNGのとき（バックエンド実装済み・画面統合はこれから）**：PDF・画像をアップロード → 読み取った五線譜を原本と見比べて確認・修正 → 調弦の候補1〜3案 → 糸譜
 
 ## 担当
 
 | 担当 | 内容 |
 |---|---|
-| フロント担当 | 画面 |
-| 解析担当 | ② 解析、④ 整形、API |
-| アルゴリズム担当 | ③ アルゴリズム、Docker環境 |
+| フロント担当 | 画面（確認画面を含む） |
+| 解析担当 | ① 楽譜認識の呼び出し、② 解析、④ 整形、API |
+| アルゴリズム担当 | ③ アルゴリズム、Docker環境（Audiverisを入れる） |
 
 
 ## 全体の流れ
@@ -24,7 +25,7 @@ MusicXML
  → ③ アルゴリズム：調弦の3案と、各音の弦・押し手を決める
  → ④ 整形：フロントと約束したJSONにする
  → API：フロントに返す
- → 画面：調弦の候補と縦譜を表示する
+ → 画面：調弦の候補と糸譜を表示する
 ```
 
 ① 入口（PDF・PNG → MusicXML / 音データ）と人間による確認・編集は試作実装済みです。
@@ -34,6 +35,7 @@ MusicXML
 
 - フロント：Vite + Vanilla JS。確認・編集画面ではOpenSheetMusicDisplay（五線譜描画）とPDF.js（原本PDF描画）を使用
 - バックエンド：Python 3.14.8、FastAPI ＋ uvicorn、music21（MusicXMLの読み込み）
+- 楽譜認識：Audiveris（PDF・画像 → MusicXML。Javaのソフトをコマンドとして呼ぶ。ライセンスはAGPL）
 - 環境：Docker
 
 ## フォルダ構成
@@ -67,6 +69,8 @@ Docker環境とAPIの土台として、次のファイルを追加済みです�
 
 `schemas.py`、`parse.py`、`assign.py`、`tuning.py`、`grid.py`、`to_json.py`は実装済みです。
 PDF・PNG認識の`omr.py`と確認・編集用APIも追加していますが、Audiveris・OCR言語データのDockerへの組み込みは未対応です。
+
+部品の間のデータ型は `backend/koto/schemas.py` にあります。変更するときはバックエンドの担当者間で相談してください。
 
 ## Dockerでバックエンドを開発する
 
@@ -188,7 +192,9 @@ PDF / PNG
 - バックエンド：`backend/main.py` がAPIの窓口。`backend/koto/omr.py` がAudiverisを呼び出して認識し、既存の `parse.py` / `tuning.py` / `assign.py` / `grid.py` / `to_json.py` で解析・変換します。
 - フロントエンド：APIへファイルを送り、返ってきたデータを表示・編集し、確認後のScoreを送ります。接続の見本は `frontend/src/review.js` の `request()` と2つのAPIを呼ぶ箇所です。
 - 五線譜表示用のMusicXMLは、編集するたびにフロント側でScoreから作り直します（`review-notation.js`）。描画・音符の選択は `review-staff.js`、PDF表示は `review-source.js`、編集・拍数チェックは `review-model.js` が担当します。
-- 確認・編集画面は `frontend/review.html`。通常の画面は `frontend/index.html` です。通常画面の `src/api.js` は現在sample.jsonを返す仮実装のため、review画面とは接続状況が異なります。
+- 確認・編集画面は `frontend/review.html`。通常の画面は `frontend/index.html` です。通常画面の `src/api.js` もmainで `POST /api/analyze` への実接続が入っています。
+
+参考の `review.html`・`review-*`・`review.js` などのフロント試作はローカルにあり、今回のバックエンド・READMEのみのコミットには含めません。共有ブランチでファイルが見つからない場合は、フロント担当がAPI仕様から実装するか、試作コードを別途共有してください。
 
 **バックエンドの実行環境**
 
@@ -355,6 +361,8 @@ Scoreの項目：
 - `beats`：拍子の分子。1〜16の整数。
 - `beat_type`：拍子の分母。1 / 2 / 4 / 8 / 16 / 32。
 - `notes`：Noteの配列。
+- `measure_count`：小節数。省略時は0（notesから数える）。mainで追加された項目です。
+- `key_sharps`：調号の♯数（♭は負数）。省略時は0。mainで追加された項目です。
 
 Noteの項目：
 
@@ -363,6 +371,7 @@ Noteの項目：
 - `offset`：小節の先頭から何拍後に始まるか。0以上、Scoreの `beats` 未満。
 - `beats`：音・休符の長さ。0より大きく64拍以下。**Scoreの `beats` は拍子、Noteの `beats` は長さです。**
 - `rest`：休符ならtrue、音符ならfalse。
+- `tuplet` / `tuplet_n`：連符のまとまり番号と何連符か。省略時はどちらも0。mainで追加された項目です。バックエンドの型に存在しますが、現在の試作画面の五線譜表示では連符は未対応です。
 
 時間の単位は拍子の分母に合わせます。4/4なら1拍＝四分音符、6/8なら1拍＝八分音符です。
 テンポのBPMはこれとは別に四分音符基準です。
@@ -397,8 +406,11 @@ API起動後、接続先の `/docs` からリクエスト形式を確認でき�
 - `offset`：小節の中の位置（拍単位。0, 1, 1.5 など）
 - `beats`：長さ（拍単位）
 - `rest`：休符かどうか
+- `tuplet` / `tuplet_n`：3連符などのまとまりの番号と、何連符か（連符でなければ 0）
 
 和音は一番上の音だけ。タイでつながった音は1つにまとめる。
+
+下の「確認画面のJSON」はmainで追加された別形式の設計案です。現行の `/api/review/*` は上記のScore / Note形式を使い、タイを合計した音データを直接受け渡します。
 
 ### ③ → ④ 調弦の候補（3案）
 
@@ -413,6 +425,81 @@ API起動後、接続先の `/docs` からリクエスト形式を確認でき�
 ### ④ → フロント
 
 JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) にまとめています（フロントとの約束はこちらが正）。
+
+### 確認画面のJSON（mainの設計案・未実装）
+
+以下はmainで追加された、タイを分けたまま扱う別形式の設計案です。**`/api/convert` と `/api/analyze-notes` は未実装で、現行の `/api/review/*` とはURLも送受信形式も異なります。** この案へ統合する場合は、フロント・バック双方で形式変換とAPI実装を揃える必要があります。現在の接続には上の「PDF・PNGの読み取りと確認・編集（試作）」の仕様を使ってください。
+
+設計上は `/api/convert` が返し、`/api/analyze-notes` に送るJSONを想定しています。楽譜に書いてある通りの形にしてある（編集しやすいように）。
+[frontend/README.md](frontend/README.md) にも同じものを載せている。変えるときは両方直す。
+
+```json
+{
+  "title": "糸",
+  "composer": "中島みゆき",
+  "tempo": 80,
+  "time": { "beats": 4, "beatType": 4 },
+  "keySharps": -2,
+  "suspiciousMeasures": [1],
+  "measures": [
+    {
+      "notes": [
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "q", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 1 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "C", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "B", "alter": -1, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "G", "alter": 0, "octave": 4 }, "dur": "8", "dots": 0 }
+      ]
+    },
+    {
+      "notes": [
+        { "pitch": { "step": "F", "alter": 0, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0, "tie": true },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "q", "dots": 0 },
+        { "rest": true, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "B", "alter": -1, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "F", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 }
+      ]
+    }
+  ]
+}
+```
+
+#### 曲全体
+
+| 項目 | 意味 |
+|---|---|
+| `title` / `composer` / `tempo` / `time` | 曲名、作曲者、テンポ（♩=いくつ）、拍子。`/api/analyze` と同じ |
+| `keySharps` | 調号の#の数（♭はマイナス。♭2つなら `-2`）。五線譜の調号を描くのと、↑↓キーで音を動かすのに使う |
+| `suspiciousMeasures` | 楽譜認識が怪しい小節の番号（**0始まり**。`measures` の何番目か）。赤枠を出す。`/api/analyze-notes` に送るときは付けなくていい |
+| `measures` | 小節のリスト。各小節の `notes` に、音符・休符を左から順に並べる |
+
+#### 音符・休符1つ
+
+| 項目 | 意味 |
+|---|---|
+| `pitch` | 音の高さ。休符には付けない |
+| `pitch.step` | 音名（`C` `D` `E` `F` `G` `A` `B`） |
+| `pitch.alter` | 実際に鳴る音の変化（`-1`＝♭、`0`、`1`＝#）。**調号で付く♭・#も含める**（♭2つの曲の B は `-1`）。MusicXML の `<alter>` と同じ |
+| `pitch.octave` | オクターブ（真ん中のド＝`C4`）。MusicXML と同じ |
+| `rest` | 休符なら `true`。音符なら書かない |
+| `dur` | 音符の種類：`"w"` 全音符、`"h"` 2分、`"q"` 4分、`"8"` 8分、`"16"` 16分、`"32"` 32分 |
+| `dots` | 付点の数（`0` か `1`） |
+| `tie` | 次の音とタイでつながっているなら `true`（小節をまたいでもいい）。**まとめずに分けたまま**。まとめるのは `/api/analyze-notes` の中 |
+| `tuplet` | 連符のまとまりの番号（曲の中で1から）。同じまとまりの音には同じ番号。連符でなければ書かない |
+| `tupletN` | 何連符か（3連符なら `3`）。`tuplet` があるときだけ |
+
+#### 決めごと
+- 長さ・拍の位置はJSONに持たない（`dur`・`dots`・連符から計算できる）。小節の中の位置は、前の音から足していけば出る
+- 1パート・単旋律だけ（今の解析と同じ）：パートが複数なら1つ目、和音は一番上の音、声部が複数なら1つ目。装飾音は入れない
+- 拍が合わない小節もそのまま返す（直すのは確認画面でユーザーがやる）
+- 曲の最後に続く休符だけの小節は、`/api/convert` で取り除いて返す
+- 1小節目は弱起で短くてもいい
+- 途中で拍子・調号が変わる曲は、今は考えない（最初のものを使う）
 
 ## ③ アルゴリズム
 
@@ -457,12 +544,21 @@ JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) に�
    - アルゴリズム担当：`assign.py`。平調子に固定し、手で作った音のリストで動かす
 3. つなぐ：parse → assign（平調子固定）→ grid → to_json → API。1案だけでもフロントにJSONが返る → フロントとつないでみる
 4. `tuning.py`：3案が出る（アルゴリズム担当）
-5. デモ曲で確認、改良、入口を入れるか判断
+5. デモ曲で確認、改良
 
 **当日までの目標**
 - 最低限：3まで（デモ曲を入れるとJSONが返る）
 - 理想：4の試作まで。フロントと一度つながっている
 - 1日目15時の中間発表で「アップロード → 縦譜」を見せたい
+
+### PDF・画像の読み込み（次の段階）
+
+1. 解析担当：MusicXML → 確認画面のJSON を先に作る（Audiverisがなくても `ito.musicxml` で作れる）。フロントはこれをダミーデータにして画面を作り始める
+2. 並行して進める
+   - アルゴリズム担当：Dockerのイメージに Audiveris を入れる（約80MB増える）
+   - 解析担当：`/api/convert`（PDF・画像 → Audiveris → 確認画面のJSON ＋ 怪しい小節）と `/api/analyze-notes`
+   - フロント担当：確認画面（原本の表示 → 五線譜の表示 → 編集）
+3. つなぐ：PDF をアップロード → 確認 → 糸譜 が一通り動く
 
 ## ルール
 
@@ -477,3 +573,5 @@ JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) に�
 - 採点の重み：強押しと弱押しの差、調弦替え1本と押し手1回のどちらを重く見るか、手の移動の重み
 - PDF・PNG認識用のAudiveris・OCR言語データをDockerへ組み込む方法
 - 確認・編集の試作を通常の変換画面へ統合する範囲
+- 写真の受け付け範囲と、撮影条件ごとの認識精度
+- Audiverisのライセンス（AGPL）の公開・配布時の扱いをチームで確認する
