@@ -90,7 +90,7 @@
       <div class="panel-header">
         <span class="chapter-badge">検の章</span>
         <h2>読み取った楽譜を確かめる</h2>
-        <p class="panel-desc">左の原本と右の五線譜を見比べてください。違う音は、クリックして選び、下のボタンで直せます。</p>
+        <p class="panel-desc">左の原本と右の五線譜を見比べてください。違う音は、クリックして選び、下のボタンで直せます。小節が足りないときは「＋ 小節」で足せます。</p>
       </div>
 
       <p id="confirm-summary" class="confirm-summary"></p>
@@ -159,6 +159,10 @@
               <button type="button" class="tool-btn" data-op="tie" title="次の音とタイでつなぐ（T）">タイ</button>
               <button type="button" class="tool-btn" data-op="insert" title="うしろに同じ音を足す">＋ 足す</button>
               <button type="button" class="tool-btn" data-op="delete" title="消す（Delete）。音符は休符になる">消す</button>
+            </div>
+            <div class="tool-group">
+              <button type="button" class="tool-btn" data-op="addMeasure" title="選んでいる小節のうしろに、空の小節を足す">＋ 小節</button>
+              <button type="button" class="tool-btn" data-op="deleteMeasure" title="選んでいる小節を消す">小節を消す</button>
             </div>
           </div>
 

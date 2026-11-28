@@ -18,6 +18,7 @@ const NARROW_WIDTH = 640;       // これより狭いときは1段2小節にす�
 const COLOR_SELECTED = '#b83227';
 const COLOR_BAD_FILL = 'rgba(184, 50, 39, 0.10)';
 const COLOR_BAD_STROKE = '#b83227';
+const COLOR_SELECTED_MEASURE = 'rgba(31, 54, 77, 0.10)';
 
 /** 調号の#の数 → VexFlow の調号名 */
 const MAJOR_KEYS = {
@@ -62,6 +63,7 @@ export function renderNotation(container, score, sel) {
     const layoutX = measureLayout(score, perLine, width - SIDE_PADDING * 2, keyName, timeSig);
 
     const hits = [];          // { m, i, x, y, w, h }
+    const emptyBoxes = [];    // 音が1つもない小節 { m, x, y, w, h }（クリックで選べるように）
     const drawn = [];         // 曲の頭から順に { m, i, note, staveNote, line }
     let selectedBox = null;
 
@@ -91,7 +93,19 @@ export function renderNotation(container, score, sel) {
         }
         stave.draw();
 
-        if (!measure.notes.length) return;
+        if (!measure.notes.length) {
+            const top = stave.getYForLine(0) - 14;
+            const box = { m, i: -1, x, y: top, w: staveWidth, h: stave.getYForLine(4) + 14 - top };
+            emptyBoxes.push(box);
+            if (sel && sel.m === m && sel.i === -1) {
+                ctx.save();
+                ctx.setFillStyle(COLOR_SELECTED_MEASURE);
+                ctx.fillRect(box.x + 2, box.y + 2, box.w - 4, box.h - 4);
+                ctx.restore();
+                selectedBox = box;
+            }
+            return;
+        }
 
         const staveNotes = measure.notes.map((note, i) => {
             const isSelected = sel && sel.m === m && sel.i === i;
@@ -144,7 +158,10 @@ export function renderNotation(container, score, sel) {
                 const dist = dx * 4 + Math.abs(py - cy) * 0.2;
                 if (dist < bestDist) { bestDist = dist; best = { m: h.m, i: h.i }; }
             }
-            return best;
+            if (best) return best;
+            // 音符に当たらなければ、空の小節をクリックしたか
+            const empty = emptyBoxes.find((b) => px >= b.x && px <= b.x + b.w && py >= b.y - 10 && py <= b.y + b.h + 10);
+            return empty ? { m: empty.m, i: -1 } : null;
         },
     };
 }

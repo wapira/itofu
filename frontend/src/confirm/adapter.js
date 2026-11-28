@@ -107,8 +107,11 @@ export function musicXmlToConfirm(xmlText, meta = {}) {
         measures.push({ notes });
     }
 
-    // 曲の最後に続く、休符だけの小節を取り除く（バックエンドと同じ）
-    while (measures.length > 1 && measures[measures.length - 1].notes.every((n) => n.rest)) {
+    // 曲の最後に続く、休符だけの小節を取り除く（バックエンドと同じ）。
+    // 音が1つもない小節は「読み取れなかった小節」（全音符を見落とすことがある）なので残し、
+    // 赤枠で知らせる（ここで消すと、最後の全音符がなくなったことに気づけない）。
+    const restOnly = (m) => m.notes.length > 0 && m.notes.every((n) => n.rest);
+    while (measures.length > 1 && restOnly(measures[measures.length - 1])) {
         measures.pop();
     }
 

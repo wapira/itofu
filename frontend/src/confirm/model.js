@@ -6,6 +6,7 @@
  * （元に戻すのため）。
  *
  * 音符の場所は { m, i }（m 小節目の i 番目。どちらも0始まり）で表す。
+ * 音が1つもない小節を選んでいるときは { m, i: -1 } にする。
  */
 
 export const DURATIONS = ['w', 'h', 'q', '8', '16', '32'];
@@ -99,7 +100,12 @@ export function describeNote(note) {
 // ---------- 選んでいる場所 ----------
 
 export function getNote(score, sel) {
-    return sel ? score.measures[sel.m]?.notes[sel.i] ?? null : null;
+    return sel && sel.i >= 0 ? score.measures[sel.m]?.notes[sel.i] ?? null : null;
+}
+
+/** 音が1つもない小節を選んでいるか */
+export function isEmptyMeasureSel(score, sel) {
+    return !!sel && sel.i === -1 && score.measures[sel.m]?.notes.length === 0;
 }
 
 /** 曲の最初の音符の場所。音符がなければ null */
@@ -112,13 +118,16 @@ export function firstSel(score) {
 export function moveSel(score, sel, step) {
     if (!sel) return firstSel(score);
     let { m, i } = sel;
+    if (i === -1) i = step > 0 ? -1 : 0;   // 空の小節から動くときは、隣の小節へ
     i += step;
     while (m >= 0 && m < score.measures.length) {
         const len = score.measures[m].notes.length;
         if (i >= 0 && i < len) return { m, i };
         m += step;
         if (m < 0 || m >= score.measures.length) break;
-        i = step > 0 ? 0 : score.measures[m].notes.length - 1;
+        const nextLen = score.measures[m].notes.length;
+        if (nextLen === 0) return { m, i: -1 };  // 空の小節にも止まる
+        i = step > 0 ? 0 : nextLen - 1;
     }
     return sel;
 }
@@ -126,10 +135,11 @@ export function moveSel(score, sel, step) {
 /** 消したあとなどで、場所が範囲の外に出ないようにする */
 export function clampSel(score, sel) {
     if (!sel) return firstSel(score);
+    if (sel.m >= score.measures.length) sel = { m: score.measures.length - 1, i: 0 };
     const notes = score.measures[sel.m]?.notes;
     if (!notes) return firstSel(score);
-    if (notes.length === 0) return moveSel(score, { m: sel.m, i: -1 }, 1);
-    return { m: sel.m, i: Math.min(sel.i, notes.length - 1) };
+    if (notes.length === 0) return { m: sel.m, i: -1 };  // 空の小節はそのまま選んでおく
+    return { m: sel.m, i: Math.max(0, Math.min(sel.i, notes.length - 1)) };
 }
 
 
@@ -147,7 +157,7 @@ function updateNote(score, sel, fn) {
 function previousPitch(score, sel) {
     for (let m = sel.m; m >= 0; m--) {
         const notes = score.measures[m].notes;
-        const start = m === sel.m ? sel.i - 1 : notes.length - 1;
+        const start = m === sel.m ? Math.min(sel.i, notes.length) - 1 : notes.length - 1;
         for (let i = start; i >= 0; i--) {
             if (!notes[i].rest) return notes[i].pitch;
         }
@@ -235,6 +245,7 @@ export function deleteNote(score, sel) {
  * 返すもの：{ score, sel }（sel は足した音）
  */
 export function insertAfter(score, sel) {
+    if (isEmptyMeasureSel(score, sel)) return fillEmptyMeasure(score, sel);
     const note = getNote(score, sel);
     if (!note) return { score, sel };
     const next = structuredClone(score);
@@ -244,6 +255,53 @@ export function insertAfter(score, sel) {
     delete copy.tupletN;
     next.measures[sel.m].notes.splice(sel.i + 1, 0, copy);
     return { score: next, sel: { m: sel.m, i: sel.i + 1 } };
+}
+
+
+/**
+ * 空の小節に音を1つ入れる。小節いっぱいの長さ（4/4 なら全音符）にし、高さは前の音と同じにする。
+ * 返すもの：{ score, sel }（sel は入れた音）
+ */
+function fillEmptyMeasure(score, sel) {
+    const next = structuredClone(score);
+    const prev = previousPitch(next, { m: sel.m, i: 0 });
+    const pitch = prev
+        ? { ...prev }
+        : { ...DEFAULT_PITCH, alter: keyAlter(DEFAULT_PITCH.step, next.keySharps) };
+    next.measures[sel.m].notes.push({ pitch, ...fullMeasureDuration(next.time) });
+    return { score: next, sel: { m: sel.m, i: 0 } };
+}
+
+/** 小節いっぱいの長さを表せる音符（なければ4分音符） */
+function fullMeasureDuration(time) {
+    const q = measureQuarters(time);
+    for (const dur of DURATIONS) {
+        if (Math.abs(QUARTERS[dur] - q) < EPS) return { dur, dots: 0 };
+        if (Math.abs(QUARTERS[dur] * 1.5 - q) < EPS) return { dur, dots: 1 };
+    }
+    return { dur: 'q', dots: 0 };
+}
+
+/**
+ * 選んでいる小節のうしろに、空の小節を足す（楽譜認識が段ごと見落としたときなど）。
+ * 返すもの：{ score, sel }（sel は足した小節）
+ */
+export function addMeasureAfter(score, sel) {
+    const m = sel ? sel.m : score.measures.length - 1;
+    const next = structuredClone(score);
+    next.measures.splice(m + 1, 0, { notes: [] });
+    return { score: next, sel: { m: m + 1, i: -1 } };
+}
+
+/**
+ * 選んでいる小節を消す（楽譜認識が余分な小節を作ったときなど）。最後の1小節は消さない。
+ * 返すもの：{ score, sel }
+ */
+export function deleteMeasure(score, sel) {
+    if (!sel || score.measures.length <= 1) return { score, sel };
+    const next = structuredClone(score);
+    next.measures.splice(sel.m, 1);
+    return { score: next, sel: clampSel(next, { m: Math.min(sel.m, next.measures.length - 1), i: 0 }) };
 }
 
 

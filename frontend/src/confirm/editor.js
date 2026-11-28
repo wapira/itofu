@@ -6,8 +6,9 @@
  * 曲名・作曲者・テンポは五線譜の編集（元に戻すの対象）とは別に、入力欄から読んで送るときに入れる。
  */
 import {
-    History, badMeasures, clampSel, deleteNote, describeNote, firstSel, getNote, insertAfter,
-    moveSel, setAlter, setDuration, stepPitch, toggleDot, toggleRest, toggleTie,
+    History, addMeasureAfter, badMeasures, clampSel, deleteMeasure, deleteNote, describeNote,
+    firstSel, getNote, insertAfter, isEmptyMeasureSel, moveSel, setAlter, setDuration, stepPitch,
+    toggleDot, toggleRest, toggleTie,
 } from './model.js';
 import { renderNotation, waitForFonts } from './notation.js';
 import { createOriginalView } from './original.js';
@@ -52,25 +53,33 @@ export function createConfirmScreen({ root, onSubmit }) {
         const bad = badMeasures(score);
         const count = score.measures.length;
         summaryEl.classList.toggle('has-bad', bad.length > 0);
+        const empty = score.measures.map((x, m) => (x.notes.length ? -1 : m)).filter((m) => m >= 0);
+        const emptyText = empty.length
+            ? `${empty.map((m) => m + 1).join('・')}小節目は音を読み取れませんでした（全音符を見落とすことがあります）。`
+            : '';
         summaryEl.textContent = bad.length
-            ? `${count}小節を読み取りました。赤い小節（${bad.map((m) => m + 1).join('・')}小節目）は拍が合いません。原本と見比べて直してください。`
-            : `${count}小節を読み取りました。原本と見比べて、違うところがあれば直してください。`;
+            ? `${count}小節を読み取りました。赤い小節（${bad.map((m) => m + 1).join('・')}小節目）は拍が合いません。${emptyText}原本と見比べて直してください。`
+            : `${count}小節を読み取りました。原本と見比べて、違うところや足りない小節があれば直してください。`;
     }
 
     function updateSelectionInfo() {
         const note = getNote(score, sel);
-        selectionEl.textContent = note
-            ? `${sel.m + 1}小節目・${sel.i + 1}つ目：${describeNote(note)}`
-            : '音符をクリックして選んでください';
+        if (note) selectionEl.textContent = `${sel.m + 1}小節目・${sel.i + 1}つ目：${describeNote(note)}`;
+        else if (isEmptyMeasureSel(score, sel)) selectionEl.textContent = `${sel.m + 1}小節目（音がありません）：「＋ 足す」で音を入れられます`;
+        else selectionEl.textContent = '音符をクリックして選んでください';
     }
 
     function updateButtons() {
         const note = getNote(score, sel);
+        const emptyMeasure = isEmptyMeasureSel(score, sel);
         root.querySelectorAll('[data-op]').forEach((btn) => {
             const op = btn.dataset.op;
             let disabled = !note;
             if (op === 'undo') disabled = !history.canUndo;
             if (op === 'redo') disabled = !history.canRedo;
+            if (op === 'insert') disabled = !note && !emptyMeasure;
+            if (op === 'addMeasure') disabled = !sel;
+            if (op === 'deleteMeasure') disabled = !sel || score.measures.length <= 1;
             if (note?.rest && ['up', 'down', 'sharp', 'flat', 'natural', 'tie'].includes(op)) disabled = true;
             btn.disabled = disabled;
             // 今の音に当てはまるボタンを押した見た目にする
@@ -100,7 +109,7 @@ export function createConfirmScreen({ root, onSubmit }) {
 
     /** 編集を1つ行う。fn は { score, sel } を返す */
     function edit(fn) {
-        if (!getNote(score, sel)) return;
+        if (!sel) return;
         const result = fn(score, sel);
         if (result.score === score) return;
         history.push({ score, sel });
@@ -122,6 +131,8 @@ export function createConfirmScreen({ root, onSubmit }) {
         tie: keep(toggleTie),
         insert: insertAfter,
         delete: deleteNote,
+        addMeasure: addMeasureAfter,
+        deleteMeasure,
     };
 
     function runOp(op, btn) {
