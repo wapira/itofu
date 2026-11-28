@@ -103,6 +103,10 @@ function renderGrid(measures) {
 
 /** 小節を MEASURES_PER_COLUMN ずつ1行（縦の列）にまとめた要素を返す */
 function buildColumns(measures) {
+    // 1小節の拍の数（いちばん長い小節に合わせる）。1行は MEASURES_PER_COLUMN 小節ぶんの拍で高さを等分する
+    const beatsPerMeasure = Math.max(1, ...measures.map((m) => m.length));
+    const beatsPerColumn = beatsPerMeasure * MEASURES_PER_COLUMN;
+
     const columns = [];
     for (let i = 0; i < measures.length; i += MEASURES_PER_COLUMN) {
         const chunk = measures.slice(i, i + MEASURES_PER_COLUMN);
@@ -114,6 +118,7 @@ function buildColumns(measures) {
             const isLast = globalIdx === measures.length - 1;
             const mDiv = document.createElement('div');
             mDiv.className = 'tatefu-measure' + (isLast ? ' final-measure' : '');
+            mDiv.style.setProperty('--share', measure.length / beatsPerColumn);
 
             // 小節番号
             const numTag = document.createElement('span');
@@ -167,8 +172,8 @@ function createExtraPage(legend) {
 function renderBeat(beat) {
     const cell = document.createElement('div');
     cell.className = 'beat-cell';
-    // マスの大きさは一定。音が多いほど CSS で小さく詰めて表示する
-    cell.dataset.count = Math.min(beat.length, 5);
+    // マスの大きさは一定。音が多いほど CSS で文字を小さく詰めて表示する
+    cell.style.setProperty('--n', Math.max(beat.length, 1));
 
     beat.forEach((note) => {
         if (note.rest) {

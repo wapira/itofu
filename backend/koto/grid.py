@@ -16,7 +16,7 @@
   - 音が1つも始まらない拍は ⊙（△△ のような拍も ⊙）
   - ⊙ は「、」にしない。続くときは ⊙⊙ と書く
   - 同じ弦・同じ押し手の音が3回以上続いたら、2回目から repeat（「、」）。
-    2回だけなら両方そのまま書く。休符をはさんだら数え直す
+    2回だけなら両方そのまま書く。⊙・△（休符・伸ばし）をはさんだら数え直す
 """
 import math
 
@@ -44,15 +44,6 @@ def build_grid(notes: list[Note], assignments: list[Assignment | None],
         [[] for _ in range(beats_per_measure)] for _ in range(measure_count)
     ]
 
-    previous: Assignment | None = None  # 「、」判定用：直前に弾いた音
-    run: list[dict] = []                # 「、」判定用：同じ音が続いている要素
-
-    def close_run():
-        if len(run) >= REPEAT_MIN:
-            for it in run[1:]:
-                it["repeat"] = True
-        run.clear()
-
     for note, assignment in zip(notes, assignments):
         beat = math.floor(note.offset + EPS)
         row = cells[note.measure]
@@ -63,22 +54,12 @@ def build_grid(notes: list[Note], assignments: list[Assignment | None],
             starts_on_beat = abs(note.offset - beat) < EPS
             full = starts_on_beat and note.beats >= 1 - EPS
             item = dict(FULL_REST if full else SHORT_REST)
-            close_run()
-            previous = None
         else:
             if assignment is None:
                 raise ValueError("音なのに弦の割り当てがありません")
-            same = (previous is not None
-                    and previous.string == assignment.string
-                    and previous.oshi == assignment.oshi)
-            if not same:
-                close_run()
             item = {"string": assignment.string, "oshi": assignment.oshi,
                     "repeat": False}
-            run.append(item)
-            previous = assignment
         row[beat].append((note.offset, item))
-    close_run()
 
     grid = []
     for m_index, row in enumerate(cells):
@@ -99,4 +80,31 @@ def build_grid(notes: list[Note], assignments: list[Assignment | None],
                     items = [dict(FULL_REST)]       # 音が1つも始まらない拍は ⊙
             measure.append(items)
         grid.append(measure)
+    mark_repeats(grid)
     return grid
+
+
+def mark_repeats(grid: list[list[list[dict]]]) -> None:
+    """できあがった縦譜を頭から読み、「、」にする音に repeat=True を付ける。
+
+    同じ弦・同じ押し手の音が3回以上続いたら、2回目から「、」。
+    ⊙ や △ が間に入ったら（楽譜の休符でも、伸ばしでできた ⊙ でも）数え直す。
+    """
+    run: list[dict] = []
+
+    def close_run():
+        if len(run) >= REPEAT_MIN:
+            for it in run[1:]:
+                it["repeat"] = True
+        run.clear()
+
+    for measure in grid:
+        for beat in measure:
+            for item in beat:
+                if item.get("rest"):
+                    close_run()
+                    continue
+                if run and (run[-1]["string"], run[-1]["oshi"]) != (item["string"], item["oshi"]):
+                    close_run()
+                run.append(item)
+    close_run()

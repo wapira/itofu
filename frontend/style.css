@@ -582,7 +582,22 @@ body {
   min-height: 520px;
 }
 
-/* ページ（1ページ目＝曲名の柱あり、2ページ目以降＝柱なし） */
+/* ページ（1ページ目＝曲名の柱あり、2ページ目以降＝柱なし）
+   画面でも A4 縦（210mm × 297mm）の大きさで1枚ずつ見せる */
+.tatefu-page {
+  width: 210mm;
+  height: 297mm;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: #fffef9;
+}
+.tatefu-page .tatefu-inner-frame {
+  flex: 1;
+  min-height: 0;
+}
 .tatefu-page + .tatefu-page {
   margin-top: 1.25rem;
 }
@@ -669,10 +684,11 @@ body {
   flex-direction: row-reverse; /* 1列目が右端、2列目がその左… */
   gap: 0.65rem;
   align-items: stretch;
+  height: 100%; /* 行（列）をページの下まで伸ばす */
 }
 
 .tatefu-col {
-  width: 56px /*92px*/;
+  width: 62px; /* A4縦の1ページに9行が収まる幅（印刷時も） */
   flex-shrink: 0;
   border: 1.5px solid var(--ink-sumi);
   display: flex;
@@ -698,6 +714,13 @@ body {
 .tatefu-measure {
   border-bottom: 1.5px solid var(--ink-sumi);
   position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  /* 1行の高さを小節で分ける。--share は score.js で拍の数から決める
+     （最後の行が短くても、マスの大きさは変わらない） */
+  flex: 0 0 calc(100% * var(--share, 0.25));
+  min-height: 0;
 }
 
 .tatefu-measure.final-measure {
@@ -784,8 +807,11 @@ body {
 
 /* ---------------- 糸譜：1拍1マスのセル ---------------- */
 .beat-cell {
-  /* 1拍のマスはすべて同じ大きさ。音が多い拍は中で詰めて表示する */
-  height: 36px;
+  /* 1拍のマスはすべて同じ大きさ。ページの高さを拍の数で割った大きさになる。
+     中の文字はマスの高さ（cqh）に合わせて小さくなる */
+  flex: 1 1 0;
+  min-height: 0;
+  container-type: size;
   box-sizing: border-box;
   overflow: hidden;
   border-bottom: 1px dotted #d8d0be;
@@ -797,21 +823,13 @@ body {
   font-weight: 800;
   color: var(--ink-sumi);
   position: relative;
-  padding: 2px 0;
 }
 
-/* 1マスに音が2つ以上あるときは、文字を小さく・行間を詰める */
-.beat-cell[data-count="2"] { font-size: 0.82rem; padding: 0; }
-.beat-cell[data-count="3"] { font-size: 0.66rem; padding: 0; }
-.beat-cell[data-count="4"] { font-size: 0.52rem; padding: 0; }
-.beat-cell[data-count="5"] { font-size: 0.42rem; padding: 0; }
-.beat-cell:not([data-count="1"]) .beat-note,
-.beat-cell:not([data-count="1"]) > span {
-  line-height: 1;
-  font-size: inherit;
-}
-.beat-cell:not([data-count="1"]) .oshi-mark {
-  font-size: 0.75em;
+/* マスの中の音・記号。--n（そのマスの音の数）で高さを分け合う。
+   拍が多い曲や音が多い拍ほど、文字の縦幅が狭くなる */
+.beat-cell > span {
+  font-size: min(1.25rem, calc(78cqh / var(--n, 1)));
+  line-height: 1.1;
 }
 
 .beat-cell:last-child {
@@ -822,26 +840,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1.2;
 }
 
-.rest-mark {
-  color: var(--ink-muted);
-  font-size: 0.95rem;
-}
-
-.short-rest-mark {
-  color: var(--ink-muted);
-  font-size: 0.9rem;
-}
-
+.rest-mark,
+.short-rest-mark,
 .repeat-mark {
   color: var(--ink-muted);
-  font-size: 0.9rem;
 }
 
 .oshi-mark {
-  font-size: 0.6rem;
+  font-size: 0.6em;
   color: var(--vermilion);
   font-weight: 700;
   margin-right: 1px;
@@ -881,7 +889,7 @@ body {
 /* ---------------- 印刷専用スタイル（@media print） ---------------- */
 @media print {
   @page {
-    size: A4 landscape;
+    size: A4 portrait;
     margin: 10mm;
   }
 
@@ -921,6 +929,12 @@ body {
   .tatefu-outer-frame {
     min-width: 0 !important;
     width: 100%;
+  }
+
+  /* 印刷：@page の余白（上下左右 10mm）を引いた A4 縦に合わせる */
+  .tatefu-page {
+    width: 100%;
+    height: calc(297mm - 20mm);
   }
 
   .tatefu-columns-wrapper {
