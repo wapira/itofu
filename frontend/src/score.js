@@ -21,7 +21,37 @@ export function renderScore(state) {
     updateSwitcher(data.candidates, selectedCandidateId);
     updatePillar(data, candidate);
     renderGrid(candidate.measures);
+    fitBeatText();
 }
+
+/** .beat-item の line-height（style.css と合わせる） */
+const BEAT_LINE_HEIGHT = 1.1;
+
+/**
+ * マスに入りきらない文字を、横幅はそのままで縦だけ縮める。
+ * 各音の場所の高さ ÷ 文字の高さ を --sy にする（1より大きくはしない）。
+ * 長さどうしの割り算は CSS だけでは書けないので、ここで計算する。
+ * 糸譜が隠れている間は高さが 0 なので何もしない（表示されたら ResizeObserver で呼ばれる）。
+ */
+export function fitBeatText() {
+    const items = document.querySelectorAll('#tatefu-paper .beat-item');
+    if (!items.length) return;
+    const natural = parseFloat(getComputedStyle(items[0]).fontSize) * BEAT_LINE_HEIGHT;
+    // 先に全部の高さを読んでから書き込む（読み書きを交互にすると遅くなる）
+    const heights = Array.from(items, (el) => el.clientHeight);
+    if (!natural || heights.every((h) => h === 0)) return;
+    items.forEach((el, i) => {
+        el.style.setProperty('--sy', Math.min(1, heights[i] / natural).toFixed(3));
+    });
+}
+
+// 糸譜の大きさが変わったとき（表示された・画面の幅が変わった）と、
+// 印刷用のレイアウト（ページの高さが変わる）になったときに計算し直す
+const paperEl = document.getElementById('tatefu-paper');
+if (paperEl) new ResizeObserver(() => fitBeatText()).observe(paperEl);
+window.matchMedia('print').addEventListener('change', fitBeatText);
+window.addEventListener('beforeprint', fitBeatText);
+window.addEventListener('afterprint', fitBeatText);
 
 /** 調弦切替プルダウンを更新 */
 function updateSwitcher(candidates, selectedId) {

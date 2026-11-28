@@ -6,7 +6,7 @@
 import { analyzeFile, loadSampleScore } from './api.js';
 import { SAMPLE_SCORES } from './constants.js';
 import { renderTuningCards } from './tuning.js';
-import { renderScore } from './score.js';
+import { renderScore, fitBeatText } from './score.js';
 
 
 
@@ -87,6 +87,7 @@ function onSelectCandidate(candidateId, navigate) {
 function showScore() {
     renderScore(state);
     showStep(3);
+    fitBeatText(); // 表示されて高さが測れるようになってから、文字の縦の縮みを計算する
 }
 
 

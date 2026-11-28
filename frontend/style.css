@@ -826,10 +826,18 @@ body {
 }
 
 /* マスの中の音・記号。--h（並べる場所の高さ）を --n（並べる数）で分け合う。
-   拍が多い曲や音が多い拍ほど、文字の縦幅が狭くなる */
+   文字の大きさは変えず、入りきらないときは縦だけ縮める（横幅はそのまま）。
+   縮める割合 --sy は score.js の fitBeatText() が計算する */
 .beat-item {
-  font-size: min(1.25rem, calc(var(--h, 78cqh) / var(--n, 1)));
+  flex: 0 0 auto;
+  height: calc(var(--h, 78cqh) / var(--n, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
   line-height: 1.1;
+  white-space: nowrap;
+  transform: scaleY(var(--sy, 1));
 }
 
 /* ふつうの拍：上半分＝拍の前半に始まる音、下半分＝後半に始まる音 */
