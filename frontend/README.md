@@ -2,7 +2,34 @@
 
 調弦の候補3案と、箏の楽譜（縦譜）を表示する画面です。プロジェクト全体の概要は [リポジトリのREADME](../README.md) を見てください。
 
-**フロントの役割**：APIから返ってきたJSONを、並んでいる通りに描くこと。楽譜の解析や調弦の計算はすべてバックエンドで行います。
+**フロントの役割**：通常画面ではAPIから返ってきた糸譜JSONを、並んでいる通りに描きます。楽譜の認識・解析や調弦の計算はバックエンドで行います。確認・編集画面では、返ってきた音データの編集と五線譜表示用MusicXMLの生成もフロントで担当します。
+
+## PDF・PNGの確認・編集機能：フロント担当への共有
+
+APIの仕様は [リポジトリREADMEの「PDF・PNGの読み取りと確認・編集（試作）」](../README.md#pdfpngの読み取りと確認編集試作) にまとめています。URL・送受信JSON・Score / Note・エラー・起動条件はそちらを共通の約束とします。
+
+- 試作画面：`review.html`（ViteのURLの`/review.html`）。
+- 接続設定：`frontend/.env` の `VITE_API_BASE=http://127.0.0.1:8000`。手元の確認環境は8001番なので、その場合は末尾を8001にします。変更後はViteを再起動します。
+- `127.0.0.1` はフロントを使う人自身のPCです。別PCのAPIを使う場合は、そのPCのIPを接続先にし、バックエンド側のCORSにブラウザで開くフロントのURLを追加します。
+- 読み取り：`POST /api/review/recognize` にPDF・PNGをFormDataの `file` で送信。返る `score` を編集対象とし、`musicxml` から調号・音部記号なども取得します。`missing_fields` と `warnings` を扱い、仮のテンポを確定した認識結果として扱わないでください。
+- 編集中：ScoreからMusicXMLを生成し直して五線譜を更新します。原本PDF・PNGはそのまま保持します。編集のたびにAPIを呼ぶ必要はありません。
+- 確定：人間の確認後、`POST /api/review/convert` に `{ "score": 編集後のScore, "confirmed": true }` をJSONで送信します。`_id` など表示用の情報や認識直後のMusicXMLは送りません。
+- 変換結果：下の「JSONの形」と同じデータが返ります。候補数は1〜3件。Aがない場合もあります。
+- エラー：HTTPステータスを確認し、JSONの `detail` を表示します。リクエスト検証エラーでは `detail` が配列になります。
+- 認識はバックエンドのAudiverisで行います。フロントだけで表示・編集を試す場合は、試作画面で認識済みJSONを開けます。
+
+**試作のファイル**
+
+- `src/review.js`：画面操作・API通信。フロント側の接続処理の見本。
+- `src/review-model.js`：編集用データ・拍数チェック・タイの結合／分割。
+- `src/review-notation.js`：編集後のScore → MusicXML。
+- `src/review-staff.js`：五線譜描画・音符のホバー／クリックによる編集開始。
+- `src/review-source.js`：原本PDFの描画・ページ移動。
+- `review.html` / `src/review.css`：画面構造・見た目。
+
+試作は単旋律・一定拍子を対象としています。連符など一部の長さや歌詞・強弱記号は再現対象外です。画面が狭い場合は縦並びになります。
+
+起動は `frontend/` で `npm ci` → `npm run dev`。通常画面の `src/api.js` は現在 `sample.json` を返す仮実装ですが、`src/review.js` は実APIを呼びます。
 
 ## スケジュール
 
@@ -47,7 +74,7 @@
 
 ## API
 
-- `POST http://localhost:8000/api/analyze`：MusicXMLを `multipart/form-data` で送る（フィールド名は `file` の予定）。下のJSONが返る
+- `POST http://localhost:8000/api/analyze`：MusicXMLを `multipart/form-data` で送る（フィールド名は `file`）。下のJSONが返る
 - `GET http://localhost:8000/api/health`：動作確認用
 - http://localhost:8000/docs でAPIを試せる
 
