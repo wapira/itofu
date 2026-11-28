@@ -8,6 +8,7 @@ services:
       - ./backend:/app
     environment:
       CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}"
+      AUDIVERIS_HEAP: "${AUDIVERIS_HEAP:-2g}"
     command:
       - python
       - -m
@@ -26,6 +27,27 @@ services:
         - python
         - -c
         - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).close()"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-5173}:5173"
+    environment:
+      # Accessed by the user's browser, not by this container.
+      VITE_API_BASE: "${VITE_API_BASE:-http://localhost:${BACKEND_PORT:-8000}}"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5173/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
       interval: 10s
       timeout: 5s
       retries: 3

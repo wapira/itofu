@@ -31,7 +31,9 @@ APIの仕様は [リポジトリREADMEの「PDF・PNGの読み取りと確認・
 
 試作は単旋律・一定拍子を対象としています。連符など一部の長さや歌詞・強弱記号は再現対象外です。画面が狭い場合は縦並びになります。
 
-起動は `frontend/` で `npm ci` → `npm run dev`。通常画面の `src/api.js` はmainで実API接続に更新済みです。`src/review.js` も実APIを呼びます。
+Dockerならリポジトリ直下で `docker compose up --build` すると、フロントとバックエンドが起動します（標準：画面5173番、API8000番）。ホストにNode.jsやAudiverisを入れる必要はありません。フロントの変更は `docker compose up -d --build frontend` で反映します。接続先は直下のCompose用 `.env` の `VITE_API_BASE` で指定できます。
+
+Dockerを使わない場合の起動は `frontend/` で `npm ci` → `npm run dev`。通常画面の `src/api.js` はmainで実API接続に更新済みです。`src/review.js` も実APIを呼びます。
 
 ## スケジュール
 
@@ -294,7 +296,7 @@ MusicXML を入れたときは②を飛ばして③へ進む。今の3画面に�
 - 技術はお任せ（たたき台は素のHTML/CSS/JS）
 - 作業は `frontend/` の中だけ。`backend/` は触らない
 - 作業前に `git pull`、区切りがついたら `commit` → `push`
-- Dockerは不要。APIはバックエンドの担当が起動します
+- Dockerで両方を起動できます。ホストでViteだけ動かす場合はDocker不要で、バックエンド担当が起動したAPIにも接続できます。
 
 ## 相談したいこと
 

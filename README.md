@@ -61,21 +61,23 @@ backend/
 
 Docker環境とAPIの土台として、次のファイルを追加済みです。
 
-- `docker-compose.yml`：バックエンドの起動・ポート公開・自動リロード設定
-- `backend/Dockerfile`：Python 3.14.8と依存ライブラリの環境構築
+- `docker-compose.yml`：バックエンド・フロントエンドの起動・ポート公開・ヘルスチェック設定
+- `backend/Dockerfile`：Python 3.14.8・Java 25・Audiveris 5.11.0・日本語／英語OCRデータ・フォントの環境構築
+- `backend/docker/audiveris.sh`：画面なしで楽譜認識を起動するコマンド
+- `frontend/Dockerfile` / `frontend/.dockerignore`：Node.js・npm依存・Viteを含むフロント用イメージ
 - `backend/.dockerignore`：イメージに含めないファイルの指定
 - `backend/main.py`：CORS設定、動作確認、MusicXML変換、PDF/PNG読み取り、確認後の糸譜変換のAPI
 - `.env.example`：環境変数の記入例
 
 `schemas.py`、`parse.py`、`assign.py`、`tuning.py`、`grid.py`、`to_json.py`は実装済みです。
-PDF・PNG認識の`omr.py`と確認・編集用APIも追加していますが、Audiveris・OCR言語データのDockerへの組み込みは未対応です。
+PDF・PNG認識の`omr.py`と確認・編集用APIも実装済みです。Audiveris・Java・OCR言語データもDockerビルド時に取得します。
 
 部品の間のデータ型は `backend/koto/schemas.py` にあります。変更するときはバックエンドの担当者間で相談してください。
 
-## Dockerでバックエンドを開発する
+## Dockerでアプリ全体を起動する
 
 必要なもの：Git、起動済みのDocker Desktop（またはDocker EngineとCompose）。
-ホストPCへのPythonのインストールは不要です。
+ホストPCへのPython・Java・Audiveris・Node.jsの個別インストールは不要です。初回ビルドにはインターネット接続が必要です。
 Python 3.14.8を使い、ベースイメージもダイジェストで固定しています。
 直接使うライブラリとその依存ライブラリのバージョンをbackend/requirements.txtで固定しています。
 動作確認済みのプラットフォームはLinux ARM64（Apple SiliconのDocker）です。
@@ -88,15 +90,38 @@ Python 3.14.8を使い、ベースイメージもダイジェストで固定し�
 docker compose up --build
 ```
 
+- 通常画面：http://localhost:5173
+- 確認・編集の試作画面：http://localhost:5173/review.html （試作コードが作業フォルダにある場合）
 - APIドキュメント：http://localhost:8000/docs
 - 動作確認：http://localhost:8000/api/health （`{"status":"ok"}`を返す）
 - MusicXML変換：`POST /api/analyze`（`file`フィールドで送信、5MiBまで）
-- PDF・PNG読み取りは追加のAudiveris環境が必要です。下の確認・編集機能の説明を参照してください。
+- PDF・PNG読み取り：`POST /api/review/recognize`。Audiveris・OCRデータはバックエンドイメージに同梱します。
 
 backendフォルダをコンテナの/appと共有しています。Pythonコードを保存するとuvicornの
 --reloadでAPIが再起動します。requirements.txtやDockerfileを変えた場合は、ライブラリを
 追加したことをチームに伝えたうえで、`docker compose up --build`で作り直してください。
 リロード設定は開発用です。本番公開時は別の起動設定を用意してください。
+
+フロントのソースとnpm依存はイメージに含めています。フロントのファイルを変更した場合は再ビルドが必要です。ホストのnode_modulesや.envはイメージにコピーしません。
+
+### チームの更新を取り込む
+
+作業途中の変更はコミットするか一時退避してから、共有するブランチで実行します。
+
+```bash
+git pull
+docker compose up --build -d
+```
+
+Dockerfile・依存ライブラリ・OCRデータ・フロントの変更がある場合もこの手順で更新できます。変更のないビルド工程はキャッシュを使います。更新がなければ `docker compose up -d` で起動できます。
+
+バックエンドのPythonコードはbind mountと自動リロードで反映されます。フロントの変更だけを反映する場合は `docker compose up -d --build frontend` でも構いません。
+
+### Dockerでの動作確認（2026-11-28）
+
+Linux ARM64（Apple Silicon）で、両サービスのhealthcheck、PDF・PNG読み取りAPI、確認済みScoreからの糸譜生成、未確認時の拒否、従来のMusicXML変換を確認しています。PNG認識は `--network none` の一時コンテナでも確認し、認識中の追加ダウンロードやホストのAudiverisに依存しないことを検証しました。フロントのビルドと五線譜変換テスト6件もコンテナ内で通しています。
+
+確認時のイメージサイズはバックエンド約1.26GB、フロント約564MBです（Docker表示値。ビルドキャッシュやダウンロード容量は別）。x86_64用のネイティブライブラリも同梱していますが、x86_64実機での変換テストは未実施です。認識精度を保証するテストではないので、読み取り結果の人間による確認は引き続き必要です。
 
 ### 動作確認用スクリプト
 
@@ -144,7 +169,7 @@ CORS_ORIGINSは許可するフロントのURL（スキーム・ホスト・ポ�
 0.0.0.0は待ち受け用の指定です。ブラウザの接続先にはLAN内IPアドレスを使います。
 APIを動かすPCは起動したままにします。Wi-Fiの端末間通信制限やファイアウォールで接続できない場合があります。
 この構成は開発用で、インターネットへの本番公開用ではありません。
-ポートが使用中なら.envのBACKEND_PORTを8001などに変更し、接続URLのポートも合わせます。
+ポートが使用中なら.envの `BACKEND_PORT`（標準8000）・`FRONTEND_PORT`（標準5173）を変更します。`FRONTEND_PORT` を変更した場合は `CORS_ORIGINS` にそのフロントURLも追加してください。Composeは `VITE_API_BASE` 未指定時、`http://localhost:<BACKEND_PORT>` をフロントへ渡します。明示した `VITE_API_BASE` がある場合は、そのポートも合わせます。
 
 ### Gitでの共同開発
 
@@ -194,7 +219,7 @@ PDF / PNG
 - 五線譜表示用のMusicXMLは、編集するたびにフロント側でScoreから作り直します（`review-notation.js`）。描画・音符の選択は `review-staff.js`、PDF表示は `review-source.js`、編集・拍数チェックは `review-model.js` が担当します。
 - 確認・編集画面は `frontend/review.html`。通常の画面は `frontend/index.html` です。通常画面の `src/api.js` もmainで `POST /api/analyze` への実接続が入っています。
 
-参考の `review.html`・`review-*`・`review.js` などのフロント試作はローカルにあり、今回のバックエンド・READMEのみのコミットには含めません。共有ブランチでファイルが見つからない場合は、フロント担当がAPI仕様から実装するか、試作コードを別途共有してください。
+参考の `review.html`・`review-*`・`review.js` などのフロント試作は、今回のバックエンドAPIとは別に共有する対象です。共有ブランチでファイルが見つからない場合は、フロント担当がAPI仕様から実装するか、試作コードを別途共有してください。Dockerは作業フォルダにあるフロントコードをイメージに含めます。
 
 **バックエンドの実行環境**
 
@@ -202,10 +227,13 @@ Python依存は `backend/requirements.txt` にあります。
 PDF・PNGの認識には、それに加えて、**バックエンドと同じ実行環境にAudiverisのCLIとOCR言語データ（既定：jpn+eng）が必要**です。
 `AUDIVERIS_BIN` でCLIの実行ファイルを指定できます。未指定の場合はPATH上の `audiveris` を使います。
 
-現在のDockerfileにはAudiveris・OCR言語データを組み込んでいません。
-そのため、現状のDockerだけでPDF・PNG認識が動くわけではありません。
-ホストPCにインストールしたMacアプリのパスも、そのままLinuxコンテナでは使えません。
-今回の試作はホストPCに導入したAudiverisを、同じPC上のPythonから呼び出して確認しています。
+現在のDockerfileにはAudiveris 5.11.0・Java 25・tessdata 4.1.0のjpn/eng・PDF用のフォントを含めます。Audiveris配布物とOCRデータはSHA-256で検証します。Java・Python・Nodeのベースイメージもダイジェストで固定しています。
+
+公式Linux配布物のJavaアプリとARM64/x86_64用ネイティブライブラリを取り出し、対象CPU用のJavaで起動します。同梱のx86_64用ランチャー・JREは使いません。AudiverisとOCRデータのライセンス文書もイメージに残します。
+
+Docker内では `AUDIVERIS_BIN=/usr/local/bin/audiveris`、`TESSDATA_PREFIX=/opt/tessdata` を設定済みです。Javaのヒープ上限は1認識プロセスあたり2GB（`AUDIVERIS_HEAP=2g`）で、Compose用.envから変更できます。初回はソフト・モデルをダウンロードするため、ビルドに時間がかかります。
+
+MacアプリのパスをDockerに渡す必要はありません。Dockerを使わずホストPCで実行する場合だけ、次のように個別に環境を用意します。
 
 ホストPCで起動する例（Audiveris・OCR言語データを別途準備したうえで実行）：
 
@@ -221,7 +249,9 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 **フロント担当に共有する接続設定**
 
-Viteを `frontend/` から起動するため、設定は **`frontend/.env`** に書きます。
+Docker Composeでは、リポジトリ直下の **`.env`** に `VITE_API_BASE` を指定できます（省略時は `http://localhost:<BACKEND_PORT>`）。Composeがフロントコンテナへ渡します。
+
+Dockerを使わずViteを `frontend/` から起動する場合は、設定を **`frontend/.env`** に書きます。
 
 ```env
 VITE_API_BASE=http://127.0.0.1:8000
@@ -229,8 +259,8 @@ VITE_API_BASE=http://127.0.0.1:8000
 
 - `VITE_API_BASE` はバックエンドの接続先です。APIの各パスがこのURLの後ろに付きます。末尾の `/` は付けません。
 - 現在の手元の確認環境はバックエンド8001番・フロント5174番です。その場合は `VITE_API_BASE=http://127.0.0.1:8001` にします。8001が必須という意味ではありません。
-- リポジトリ直下のCompose用 `.env` は、フロントの `frontend/.env` とは別です。Viteが直下の設定を自動で読む構成にはなっていません。
-- フロントの環境変数を変更したら、Viteを再起動します。
+- 直下のCompose用 `.env` と、ホストでViteを動かす場合の `frontend/.env` は別です。DockerではComposeが明示的に環境変数を渡します。
+- 環境変数を変更したら、Dockerでは `docker compose up -d` でコンテナを更新します。ホスト起動ではViteを再起動します。
 - `127.0.0.1` / `localhost` は、ブラウザを使う人自身のPCです。別の人のバックエンドへ接続する場合は、そのPCのLAN内IPなどを指定します。
 - バックエンドの `CORS_ORIGINS` には、**ブラウザで開くフロントのURL**を指定します。APIのURLではありません。標準設定では5173番を許可しています。5174番で動かす場合は、バックエンド起動時に `CORS_ORIGINS=http://127.0.0.1:5174,http://localhost:5174` などを指定します。
 
@@ -551,11 +581,13 @@ JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) に�
 - 理想：4の試作まで。フロントと一度つながっている
 - 1日目15時の中間発表で「アップロード → 縦譜」を見せたい
 
-### PDF・画像の読み込み（次の段階）
+### PDF・画像の読み込み（当初の拡張計画）
+
+以下はmain側の設計案です。Audiveris・Java・OCRデータのDocker組み込みは今回実施しました。現行APIは `/api/review/*` で、下記の別形式のAPI案への統合は別途検討します。
 
 1. 解析担当：MusicXML → 確認画面のJSON を先に作る（Audiverisがなくても `ito.musicxml` で作れる）。フロントはこれをダミーデータにして画面を作り始める
 2. 並行して進める
-   - アルゴリズム担当：Dockerのイメージに Audiveris を入れる（約80MB増える）
+   - アルゴリズム担当：DockerのイメージにAudiveris・Java・OCRデータを入れる（組み込み済み。サイズは `docker image ls` で確認）
    - 解析担当：`/api/convert`（PDF・画像 → Audiveris → 確認画面のJSON ＋ 怪しい小節）と `/api/analyze-notes`
    - フロント担当：確認画面（原本の表示 → 五線譜の表示 → 編集）
 3. つなぐ：PDF をアップロード → 確認 → 糸譜 が一通り動く
@@ -571,7 +603,7 @@ JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) に�
 ## まだ決まっていないこと
 
 - 採点の重み：強押しと弱押しの差、調弦替え1本と押し手1回のどちらを重く見るか、手の移動の重み
-- PDF・PNG認識用のAudiveris・OCR言語データをDockerへ組み込む方法
+- Docker環境での撮影条件・ページ数ごとの認識時間と精度の確認
 - 確認・編集の試作を通常の変換画面へ統合する範囲
 - 写真の受け付け範囲と、撮影条件ごとの認識精度
 - Audiverisのライセンス（AGPL）の公開・配布時の扱いをチームで確認する
