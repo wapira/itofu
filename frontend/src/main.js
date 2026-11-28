@@ -10,14 +10,14 @@ import { SAMPLE_SCORES } from './constants.js';
 import { renderTuningCards } from './tuning.js';
 import { renderScore, fitBeatText } from './score.js';
 import { createConfirmScreen } from './confirm/editor.js';
-import { isImage, isPdf } from './confirm/original.js';
+import { isImage, isJpeg, isPdf } from './confirm/original.js';
 
 
 
 /**
  * 画面の番号
  *   MusicXML のとき：UPLOAD → TUNING → SCORE
- *   PDF・画像のとき：UPLOAD → CONFIRM → TUNING → SCORE
+ *   PDF・PNGのとき：UPLOAD → CONFIRM → TUNING → SCORE
  */
 const STEP = { UPLOAD: 1, CONFIRM: 2, TUNING: 3, SCORE: 4 };
 
@@ -29,7 +29,7 @@ const STEP = { UPLOAD: 1, CONFIRM: 2, TUNING: 3, SCORE: 4 };
 const state = {
     data: null,               // API / sample.json のレスポンス全体
     selectedCandidateId: 'B', // 選択中の候補 ID（初期値 B）
-    hasConfirm: false,        // 確認画面を開いたか（PDF・画像から読み込んだか）
+    hasConfirm: false,        // 確認画面を開いたか（PDF・PNGから読み込んだか）
 };
 
 
@@ -80,7 +80,7 @@ function showStep(stepNumber) {
 
     Object.entries(navButtons).forEach(([num, btn]) => {
         const n = Number(num);
-        // 確認画面は、PDF・画像から読み込んだときだけ行ける
+        // 確認画面は、PDF・PNGから読み込んだときだけ行ける
         const skipped = n === STEP.CONFIRM && !state.hasConfirm;
         btn.classList.toggle('active', n === stepNumber);
         btn.disabled = n > stepNumber || skipped;
@@ -117,11 +117,17 @@ function showScore() {
     fitBeatText(); // 表示されて高さが測れるようになってから、文字の縦の縮みを計算する
 }
 
-/** 確認画面を開く（file：原本、data：確認画面のJSON） */
-async function openConfirm(file, data) {
+/**
+ * 確認画面を開く。
+ * file：原本、result：{ data（確認画面のJSON）, warnings, missingFields }
+ */
+async function openConfirm(file, result) {
     state.hasConfirm = true;
     showStep(STEP.CONFIRM);
-    await confirmScreen.open(file, data);
+    await confirmScreen.open(file, result.data, {
+        warnings: result.warnings,
+        missingFields: result.missingFields,
+    });
 }
 
 
@@ -148,14 +154,17 @@ async function handleFileUpload(file) {
     if (!file) return;
     errorEl.hidden = true;
     try {
+        if (isJpeg(file)) {
+            throw new Error('JPEG は読み取れません。PNG に変換するか、PDF にしてから選んでください。');
+        }
         if (isPdf(file) || isImage(file)) {
-            // PDF・画像：楽譜認識（数十秒かかる）→ 確認画面
+            // PDF・PNG：楽譜認識（数十秒かかる）→ 確認画面
             abortController = new AbortController();
             setLoading(true, '楽譜を読み取り中…（1ページ数十秒かかります）');
             cancelRow.hidden = false;
-            const data = await convertFile(file, abortController.signal);
+            const result = await convertFile(file, abortController.signal);
             setLoading(false);
-            await openConfirm(file, data);
+            await openConfirm(file, result);
         } else {
             setLoading(true);
             const json = await analyzeFile(file);
@@ -219,8 +228,8 @@ Object.entries(SAMPLE_SCORES).forEach(([key, sample]) => {
         try {
             if (sample.confirm) {
                 // PDF読み取りのお試し：原本のPDFと、読み取った結果のダミーで確認画面を開く
-                const { file, data } = await loadConfirmSample(sample);
-                await openConfirm(file, data);
+                const { file, ...result } = await loadConfirmSample(sample);
+                await openConfirm(file, result);
             } else {
                 const json = await loadSampleScore(key);
                 state.hasConfirm = false;

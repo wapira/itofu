@@ -1,4 +1,5 @@
 import { SAMPLE_SCORES } from './constants.js';
+import { musicXmlToConfirm, toReviewScore } from './confirm/adapter.js';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
@@ -35,42 +36,60 @@ function isMissingApi(body) {
     return !body?.detail || body.detail === 'Not Found';
 }
 
-/** エラーのとき、APIの {"detail": "..."} をメッセージにする */
-async function errorFrom(res, fallback) {
+/**
+ * エラーのときのメッセージ。detail は文字列のほか、リクエストの形が違うときは配列になる。
+ */
+async function errorFrom(res, fallback, missingMessage) {
     const body = await res.json().catch(() => null);
-    if (res.status === 404 && isMissingApi(body)) {
-        return new Error('PDF・画像の読み取りはまだ使えません（バックエンドの準備中です）');
+    if (res.status === 404 && isMissingApi(body)) return new Error(missingMessage);
+    const detail = body?.detail;
+    if (Array.isArray(detail)) {
+        const msgs = detail.map((d) => d?.msg).filter(Boolean);
+        return new Error(`${fallback}（${msgs.slice(0, 3).join(' / ') || '送ったデータの形が違います'}）`);
     }
-    return new Error(body?.detail || fallback);
+    return new Error(detail || fallback);
 }
 
 /**
- * 楽譜の PDF・画像を楽譜認識にかけて、確認画面のJSONにする（POST /api/convert）。
+ * 楽譜の PDF・PNG を楽譜認識にかけて、確認画面のJSONにする（POST /api/review/recognize）。
+ * バックエンドが返す MusicXML から、楽譜に書いてある通りの形（確認画面のJSON）を作る。
  * signal：読み取りをやめるときの AbortSignal
+ * 返すもの：{ data, warnings, missingFields }
  */
 export async function convertFile(file, signal) {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await request(`${API_BASE}/api/convert`, { method: 'POST', body: fd, signal });
-    if (!res.ok) throw await errorFrom(res, '楽譜の読み取りに失敗しました');
-    return res.json();
+    const res = await request(`${API_BASE}/api/review/recognize`, { method: 'POST', body: fd, signal });
+    if (!res.ok) {
+        throw await errorFrom(res, '楽譜の読み取りに失敗しました',
+            'PDF・PNGの読み取りはまだ使えません（バックエンドの準備中です）');
+    }
+    const body = await res.json();
+    const data = musicXmlToConfirm(body.musicxml, {
+        title: body.score?.title,
+        composer: body.score?.composer,
+        tempo: body.score?.tempo,
+    });
+    return {
+        data,
+        warnings: body.warnings ?? [],
+        missingFields: body.missing_fields ?? [],
+    };
 }
 
 /**
- * 確認・編集が済んだ確認画面のJSONを送り、調弦の候補と糸譜のJSONをもらう（POST /api/analyze-notes）。
+ * 確認・編集が済んだ確認画面のJSONを送り、調弦の候補と糸譜のJSONをもらう（POST /api/review/convert）。
+ * バックエンドの Score の形に直し、確認済みの印（confirmed: true）を付けて送る。
  */
 export async function analyzeNotes(data) {
-    const res = await request(`${API_BASE}/api/analyze-notes`, {
+    const res = await request(`${API_BASE}/api/review/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ score: toReviewScore(data), confirmed: true }),
     });
     if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        if (res.status === 404 && isMissingApi(body)) {
-            throw new Error('確認した楽譜から糸譜を作る機能は、まだ使えません（バックエンドの準備中です）');
-        }
-        throw new Error(body?.detail || '糸譜を作れませんでした');
+        throw await errorFrom(res, '糸譜を作れませんでした',
+            '確認した楽譜から糸譜を作る機能は、まだ使えません（バックエンドの準備中です）');
     }
     return res.json();
 }
@@ -87,7 +106,7 @@ export async function loadConfirmSample(sample) {
     if (!pdfRes.ok || !jsonRes.ok) throw new Error('サンプルの読み込みに失敗しました');
     const blob = await pdfRes.blob();
     const file = new File([blob], sample.pdf, { type: 'application/pdf' });
-    return { file, data: await jsonRes.json() };
+    return { file, data: await jsonRes.json(), warnings: [], missingFields: [] };
 }
 
 

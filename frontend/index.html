@@ -19,7 +19,7 @@
         <span>箏</span>
       </div>
       <div class="header-titles">
-        <p class="header-sub">五線譜（MusicXML・PDF・画像）より伝統糸譜を自動生成</p>
+        <p class="header-sub">五線譜（MusicXML・PDF・PNG）より伝統糸譜を自動生成</p>
         <h1>和楽譜・糸譜変換器</h1>
       </div>
       <div class="hanko-seal" aria-hidden="true">糸譜<br>生成</div>
@@ -55,8 +55,8 @@
     <section id="screen-upload" class="wa-panel active">
       <div class="panel-header">
         <span class="chapter-badge">序の章</span>
-        <h2>五線譜（MusicXML・PDF・画像）を納める</h2>
-        <p class="panel-desc">お手持ちの <code>.musicxml</code> / <code>.xml</code> ファイル、または印刷された五線譜の <code>.pdf</code> / <code>.png</code> / <code>.jpg</code> を選択してください。PDF・画像は読み取ったあと、原本と見比べて確かめられます。<!--すべての解析はお使いのブラウザ内のみで完結します。--></p>
+        <h2>五線譜（MusicXML・PDF・PNG）を納める</h2>
+        <p class="panel-desc">お手持ちの <code>.musicxml</code> / <code>.xml</code> ファイル、または印刷された五線譜の <code>.pdf</code> / <code>.png</code> を選択してください。PDF・PNG は読み取ったあと、原本と見比べて確かめられます。<!--すべての解析はお使いのブラウザ内のみで完結します。--></p>
       </div>
 
       <div id="drop-zone" class="washi-dropzone" tabindex="0" role="button" aria-label="楽譜ファイルをアップロード">
@@ -66,8 +66,8 @@
         <div class="dropzone-corner br"></div>
         <div class="dropzone-icon">🎼</div>
         <p class="dropzone-main">ここに楽譜ファイルをドラッグ＆ドロップ</p>
-        <p class="dropzone-sub">またはクリックして端末からファイルを選択（.xml / .musicxml / .pdf / .png / .jpg）</p>
-        <input type="file" id="file-input" accept=".xml,.musicxml,.pdf,.png,.jpg,.jpeg,text/xml,application/xml,application/pdf,image/png,image/jpeg" hidden>
+        <p class="dropzone-sub">またはクリックして端末からファイルを選択（.xml / .musicxml / .pdf / .png）</p>
+        <input type="file" id="file-input" accept=".xml,.musicxml,.pdf,.png,text/xml,application/xml,application/pdf,image/png" hidden>
       </div>
       <div class="upload-cancel-row" id="upload-cancel-row" hidden>
         <button type="button" id="btn-upload-cancel" class="wa-btn wa-btn-ghost">読み取りをやめる</button>
@@ -85,7 +85,7 @@
       </div>
     </section>
 
-    <!-- ==================== 検の章：読み取った楽譜を確かめる画面（PDF・画像のときだけ） ==================== -->
+    <!-- ==================== 検の章：読み取った楽譜を確かめる画面（PDF・PNGのときだけ） ==================== -->
     <section id="screen-confirm" class="wa-panel wa-panel-wide" hidden>
       <div class="panel-header">
         <span class="chapter-badge">検の章</span>
@@ -94,6 +94,23 @@
       </div>
 
       <p id="confirm-summary" class="confirm-summary"></p>
+      <ul id="confirm-warnings" class="confirm-warnings" hidden></ul>
+
+      <!-- 曲の情報（読み取れなかった項目は印を付ける） -->
+      <div class="confirm-meta">
+        <label class="meta-field" data-field="title">
+          <span>曲名</span>
+          <input type="text" id="meta-title" maxlength="200">
+        </label>
+        <label class="meta-field" data-field="composer">
+          <span>作曲者</span>
+          <input type="text" id="meta-composer" maxlength="200">
+        </label>
+        <label class="meta-field meta-field-short" data-field="tempo">
+          <span>テンポ（♩=）</span>
+          <input type="number" id="meta-tempo" min="1" max="400" step="1">
+        </label>
+      </div>
 
       <div class="confirm-grid">
         <!-- 左：原本 -->

@@ -1,6 +1,6 @@
 # フロント設計書
 
-調弦の候補3案と、箏の楽譜（糸譜）を表示する画面です。PDF・画像から読み込んだときの確認画面もここに含みます。プロジェクト全体の概要は [リポジトリのREADME](../README.md) を見てください。
+調弦の候補3案と、箏の楽譜（糸譜）を表示する画面です。PDF・PNG から読み込んだときの確認画面もここに含みます。プロジェクト全体の概要は [リポジトリのREADME](../README.md) を見てください。
 
 **フロントの役割**：APIから返ってきたJSONを、並んでいる通りに描くこと。楽譜の解析や調弦の計算はすべてバックエンドで行います。
 確認画面だけは例外で、読み取った五線譜をユーザーが直せるように、フロントで音のリストを編集します（調弦の計算はしない）。
@@ -31,22 +31,23 @@
 ## 画面
 
 ```
-① アップロード → ② 確認（PDF・画像のときだけ）→ ③ 調弦の候補 → ④ 糸譜
+① アップロード → ② 確認（PDF・PNG のときだけ）→ ③ 調弦の候補 → ④ 糸譜
 ```
 
 MusicXML を入れたときは②を飛ばして③へ進む。上の段階ナビと章の名前は 序・検・破・急 の4つ（②が「検の章」）。
 
 **アップロード**
 - MusicXML（`.musicxml` / `.xml`）を選ぶと `/api/analyze` に送る
-- PDF・画像（`.pdf` / `.png` / `.jpg`）を選ぶと `/api/convert` に送り、確認画面へ
+- PDF・PNG（`.pdf` / `.png`）を選ぶと `/api/review/recognize` に送り、確認画面へ。JPEG は送らずに「PNG か PDF にしてください」と出す（バックエンドが PDF・PNG だけに対応しているため）
 - 送信中は「解析中」などを表示。エラーのときはメッセージを表示
-- PDF・画像の読み取りは数十秒かかるので、「楽譜を読み取り中…」と、やめるボタン（`AbortController`）を出す
+- PDF・PNG の読み取りは数十秒かかるので、「楽譜を読み取り中…」と、やめるボタン（`AbortController`）を出す
 
 **確認**
-- 左に原本（アップロードした PDF・画像）、右に読み取った五線譜を並べる
+- 左に原本（アップロードした PDF・PNG）、右に読み取った五線譜を並べる
+- バックエンドの注意事項（`warnings`）を並べて出す。曲名・作曲者・テンポは入力欄で直せて、読み取れなかった項目（`missing_fields`）には印を付ける
 - 拍が合わない小節（`suspiciousMeasures` と、編集するたびにフロントで確かめ直した結果）を赤枠で示す
 - 間違いがあれば、その場で直せる（下の「確認画面の作り方」）
-- 「これで糸譜を作る」で `/api/analyze-notes` に送り、③へ。赤い小節が残っていたら「このまま進みますか？」と確かめる（弱起などで短いだけのこともあるので、進めなくはしない）
+- 「これで糸譜を作る」で `/api/review/convert` に送り、③へ。赤い小節が残っていたら「このまま進みますか？」と確かめる（弱起などで短いだけのこともあるので、進めなくはしない）
 
 **調弦の候補3案**
 - カードに表示：`label`、`description`、`tuning`（13本の音名）、`changedStrings`（変える弦の本数）、`oshiCount`（押し手の回数）
@@ -63,8 +64,10 @@ MusicXML を入れたときは②を飛ばして③へ進む。上の段階ナ�
 ## API
 
 - `POST http://localhost:8000/api/analyze`：MusicXMLを `multipart/form-data` で送る（フィールド名は `file`）。下のJSONが返る
-- `POST http://localhost:8000/api/convert`（これから）：PDF・画像を `multipart/form-data` で送る（フィールド名は `file`）。下の「確認画面のJSONの形」が返る
-- `POST http://localhost:8000/api/analyze-notes`（これから）：確認・編集が済んだ「確認画面のJSONの形」を `application/json` で送る。`/api/analyze` と同じ下のJSONが返る
+- `POST http://localhost:8000/api/review/recognize`：PDF・PNG を `multipart/form-data` で送る（フィールド名は `file`）。`score`（バックエンドの Score）・`musicxml`・`missing_fields`・`warnings` が返る
+- `POST http://localhost:8000/api/review/convert`：`{ "score": バックエンドの Score, "confirmed": true }` を `application/json` で送る。`/api/analyze` と同じ下のJSONが返る
+- `/api/review/*` の詳しい仕様はバックエンド担当がリポジトリの README にまとめている。フロントは下の「確認画面のJSONの形」で編集し、送り受けのときに `src/confirm/adapter.js` で変換する
+- 接続先は `frontend/.env` の `VITE_API_BASE`（例：`VITE_API_BASE=http://127.0.0.1:8000`）。変えたら Vite を再起動する
 - エラーのときは `{"detail": "メッセージ"}` が返る
 - `GET http://localhost:8000/api/health`：動作確認用
 - http://localhost:8000/docs でAPIを試せる
@@ -117,7 +120,12 @@ MusicXML を入れたときは②を飛ばして③へ進む。上の段階ナ�
 
 ## 確認画面のJSONの形
 
-`/api/convert` が返し、`/api/analyze-notes` に送るJSON。楽譜に書いてある通りの形にしてある（編集しやすいように）。
+確認画面の中で編集に使うJSON。楽譜に書いてある通りの形にしてある（編集しやすいように）。
+
+バックエンドの `/api/review/*` は別の形（タイをまとめ、音名を midi にした Score）を使うので、`src/confirm/adapter.js` で変換する。
+- 読み取り：`/api/review/recognize` が返す `musicxml` から、この形を作る（`musicXmlToConfirm`）。対象はバックエンドの `parse.py` と同じ（1パート目・1つ目の声部・和音は一番上の音・装飾音は無視・曲末の休符だけの小節は除く）
+- 確定：この形を Score に直して `/api/review/convert` に送る（`toReviewScore`）。タイでつながった同じ高さの音を1つにまとめ、拍の位置・長さは拍子の分母の単位にする。1小節目が弱起で短いときは、先頭に休符を足して埋める（バックエンドは空白を受け付けないため）
+- さくら・糸の MusicXML で、`toReviewScore(musicXmlToConfirm(xml))` がバックエンドの `parse_score(xml)` と同じ音のリストになることを確かめてある
 メインの [README](../README.md) にも同じものを載せている。変えるときは両方直す。
 
 ```json
@@ -162,7 +170,7 @@ MusicXML を入れたときは②を飛ばして③へ進む。上の段階ナ�
 |---|---|
 | `title` / `composer` / `tempo` / `time` | 曲名、作曲者、テンポ（♩=いくつ）、拍子。`/api/analyze` と同じ |
 | `keySharps` | 調号の#の数（♭はマイナス。♭2つなら `-2`）。五線譜の調号を描くのと、↑↓キーで音を動かすのに使う |
-| `suspiciousMeasures` | 楽譜認識が怪しい小節の番号（**0始まり**。`measures` の何番目か）。赤枠を出す。`/api/analyze-notes` に送るときは付けなくていい |
+| `suspiciousMeasures` | 楽譜認識が怪しい小節の番号（**0始まり**。`measures` の何番目か）。赤枠を出す。フロントで計算する（バックエンドからは来ない） |
 | `measures` | 小節のリスト。各小節の `notes` に、音符・休符を左から順に並べる |
 
 **音符・休符1つ**
@@ -176,7 +184,7 @@ MusicXML を入れたときは②を飛ばして③へ進む。上の段階ナ�
 | `rest` | 休符なら `true`。音符なら書かない |
 | `dur` | 音符の種類：`"w"` 全音符、`"h"` 2分、`"q"` 4分、`"8"` 8分、`"16"` 16分、`"32"` 32分 |
 | `dots` | 付点の数（`0` か `1`） |
-| `tie` | 次の音とタイでつながっているなら `true`（小節をまたいでもいい）。**まとめずに分けたまま**。まとめるのは `/api/analyze-notes` の中 |
+| `tie` | 次の音とタイでつながっているなら `true`（小節をまたいでもいい）。**まとめずに分けたまま**。まとめるのは送る直前（`toReviewScore`） |
 | `tuplet` | 連符のまとまりの番号（曲の中で1から）。同じまとまりの音には同じ番号。連符でなければ書かない |
 | `tupletN` | 何連符か（3連符なら `3`）。`tuplet` があるときだけ |
 
@@ -184,14 +192,14 @@ MusicXML を入れたときは②を飛ばして③へ進む。上の段階ナ�
 - 長さ・拍の位置はJSONに持たない（`dur`・`dots`・連符から計算できる）。小節の中の位置は、前の音から足していけば出る
 - 1パート・単旋律だけ（今の解析と同じ）：パートが複数なら1つ目、和音は一番上の音、声部が複数なら1つ目。装飾音は入れない
 - 拍が合わない小節もそのまま返す（直すのは確認画面でユーザーがやる）
-- 曲の最後に続く休符だけの小節は、`/api/convert` で取り除いて返す
+- 曲の最後に続く休符だけの小節は、読み取りのときに取り除く
 - 1小節目は弱起で短くてもいい
 - 途中で拍子・調号が変わる曲は、今は考えない（最初のものを使う）
 
 ## 確認画面の作り方
 
-**いまの状態**：画面・原本の表示・五線譜の表示・編集・元に戻すまで作ってある（`src/confirm/`）。
-バックエンドの `/api/convert` と `/api/analyze-notes` はまだないので、PDF・画像をアップロードするとエラーのメッセージが出る。
+**いまの状態**：画面・原本の表示・五線譜の表示・編集・元に戻す・バックエンドの `/api/review/*` との接続まで作ってある（`src/confirm/`）。
+PDF・PNG の読み取りには、バックエンドと同じ環境に Audiveris が必要（今の Docker には入っていないので、入っていないときは「Audiverisが見つかりません」と出る）。
 アップロード画面の「📄 さくら（PDF読み取りのお試し）」で、原本（`public/sample-sakura.pdf`）と読み取った結果のダミー（`public/sample-confirm.json`）を使って確認画面を試せる。
 ダミーは3小節目に読み間違いを1つ入れてある（最後の音が4分音符→8分音符）。
 
@@ -199,8 +207,9 @@ MusicXML を入れたときは②を飛ばして③へ進む。上の段階ナ�
 
 | ファイル | 役割 |
 |---|---|
-| `src/api.js` | `convertFile()`（PDF・画像 → 確認画面のJSON）と `analyzeNotes()`（確認画面のJSON → 調弦の候補）を足す |
-| `src/confirm/original.js` | 原本の表示。PDFは PDF.js、画像は `<img>`。アップロードしたファイルをそのまま使う（バックエンドは使わない） |
+| `src/api.js` | `convertFile()`（PDF・PNG → `/api/review/recognize` → 確認画面のJSON）と `analyzeNotes()`（確認画面のJSON → `/api/review/convert` → 調弦の候補） |
+| `src/confirm/adapter.js` | 確認画面のJSON と バックエンドのデータ（MusicXML・Score）の変換 |
+| `src/confirm/original.js` | 原本の表示。PDFは PDF.js、PNG は `<img>`。アップロードしたファイルをそのまま使う（バックエンドは使わない） |
 | `src/confirm/model.js` | 編集用のデータと、編集の操作、小節の拍の確認、元に戻す。画面に触らない関数だけにする |
 | `src/confirm/notation.js` | VexFlow で五線譜を描く。どの音符がデータの何番目かを覚えておく |
 | `src/confirm/editor.js` | クリック・キー操作・ツールバーのボタンを、model.js の操作につなぐ |
@@ -239,7 +248,7 @@ MusicXML を入れたときは②を飛ばして③へ進む。上の段階ナ�
 
 **作る順番**
 1. 解析担当に、`ito.musicxml` から確認画面のJSONを出してもらい、ダミーデータにする
-2. 確認画面の枠と画面の流れ（4画面にする、PDF・画像を受け付ける、読み取り中の表示）
+2. 確認画面の枠と画面の流れ（4画面にする、PDF・PNG を受け付ける、読み取り中の表示）
 3. 原本の表示（PDF.js）
 4. 五線譜の表示（VexFlow）＋赤枠＋「これで糸譜を作る」→ 一通りつながる
 5. 編集：まず選ぶ・高さ・長さ・消す・元に戻す。そのあと休符・付点・タイ・足す・♯♭

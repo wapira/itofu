@@ -17,8 +17,14 @@ export function isPdf(file) {
     return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 }
 
+/** 読み取りに使える画像（PNG だけ。バックエンドが PDF・PNG にしか対応していないため） */
 export function isImage(file) {
-    return /^image\/(png|jpe?g)$/.test(file.type) || /\.(png|jpe?g)$/i.test(file.name);
+    return file.type === 'image/png' || /\.png$/i.test(file.name);
+}
+
+/** JPEG（読み取りには使えないので、PNG に変えてもらう） */
+export function isJpeg(file) {
+    return /^image\/jpe?g$/.test(file.type) || /\.jpe?g$/i.test(file.name);
 }
 
 /**

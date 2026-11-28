@@ -3,6 +3,7 @@
  *
  * main.js からは createConfirmScreen() で作り、open(原本のファイル, 確認画面のJSON) で開く。
  * 「これで糸譜を作る」が押されたら onSubmit(直したJSON) を呼ぶ。
+ * 曲名・作曲者・テンポは五線譜の編集（元に戻すの対象）とは別に、入力欄から読んで送るときに入れる。
  */
 import {
     History, badMeasures, clampSel, deleteNote, describeNote, firstSel, getNote, insertAfter,
@@ -22,7 +23,13 @@ export function createConfirmScreen({ root, onSubmit }) {
     const summaryEl = $('#confirm-summary');
     const selectionEl = $('#confirm-selection');
     const errorEl = $('#confirm-error');
+    const warningsEl = $('#confirm-warnings');
     const submitBtn = $('#btn-confirm-submit');
+    const metaInputs = {
+        title: $('#meta-title'),
+        composer: $('#meta-composer'),
+        tempo: $('#meta-tempo'),
+    };
 
     let score = null;
     let sel = null;
@@ -191,6 +198,13 @@ export function createConfirmScreen({ root, onSubmit }) {
     }).observe(notationEl);
 
     submitBtn.addEventListener('click', async () => {
+        const tempo = Number(metaInputs.tempo.value);
+        if (!Number.isInteger(tempo) || tempo < 1 || tempo > 400) {
+            errorEl.textContent = 'テンポは1〜400の整数で入れてください。';
+            errorEl.hidden = false;
+            metaInputs.tempo.focus();
+            return;
+        }
         const bad = badMeasures(score);
         if (bad.length && !window.confirm(
             `${bad.map((m) => m + 1).join('・')}小節目は拍が合っていません。このまま糸譜を作りますか？`)) return;
@@ -201,7 +215,12 @@ export function createConfirmScreen({ root, onSubmit }) {
         submitBtn.textContent = '糸譜を作っています…';
         try {
             const { suspiciousMeasures, ...data } = score;
-            await onSubmit(data);
+            await onSubmit({
+                ...data,
+                title: metaInputs.title.value.trim(),
+                composer: metaInputs.composer.value.trim(),
+                tempo,
+            });
         } catch (err) {
             errorEl.textContent = err.message || '糸譜を作れませんでした。';
             errorEl.hidden = false;
@@ -212,12 +231,39 @@ export function createConfirmScreen({ root, onSubmit }) {
         }
     });
 
+    // ---------- 曲の情報 ----------
+
+    function showMeta(data, missingFields) {
+        metaInputs.title.value = data.title ?? '';
+        metaInputs.composer.value = data.composer ?? '';
+        metaInputs.tempo.value = data.tempo ?? 80;
+        root.querySelectorAll('.meta-field').forEach((label) => {
+            const missing = missingFields.includes(label.dataset.field);
+            label.classList.toggle('missing', missing);
+            label.title = missing ? '読み取れませんでした。原本を見て入れてください' : '';
+        });
+    }
+    Object.values(metaInputs).forEach((input) => {
+        // 入れ直したら「読み取れなかった」の印を外す
+        input.addEventListener('input', () => input.closest('.meta-field').classList.remove('missing'));
+    });
+
     // ---------- 開く ----------
 
     return {
-        /** 原本のファイルと確認画面のJSONで開く。画面を表示してから呼ぶ（幅を測るため） */
-        async open(file, data) {
+        /**
+         * 原本のファイルと確認画面のJSONで開く。画面を表示してから呼ぶ（幅を測るため）。
+         * warnings：読み取りの注意（そのまま並べて出す）、missingFields：読み取れなかった曲の情報（title / composer / tempo）
+         */
+        async open(file, data, { warnings = [], missingFields = [] } = {}) {
             score = structuredClone(data);
+            showMeta(data, missingFields);
+            warningsEl.replaceChildren(...warnings.map((w) => {
+                const li = document.createElement('li');
+                li.textContent = w;
+                return li;
+            }));
+            warningsEl.hidden = warnings.length === 0;
             history = new History();
             sel = firstSel(score);
             errorEl.hidden = true;

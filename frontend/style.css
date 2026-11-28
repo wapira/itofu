@@ -968,6 +968,60 @@ body {
   font-weight: 600;
 }
 
+.confirm-warnings {
+  margin: -0.4rem 0 1rem 1.4rem;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.confirm-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  margin-bottom: 1.1rem;
+}
+
+.meta-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex: 1 1 14rem;
+}
+
+.meta-field-short {
+  flex: 0 0 auto;
+}
+
+.meta-field input {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  padding: 0.3rem 0.5rem;
+  border: 1.5px solid var(--gold-light);
+  border-radius: 4px;
+  background: #fff;
+  min-width: 0;
+  flex: 1;
+}
+
+.meta-field-short input {
+  width: 5rem;
+  flex: none;
+}
+
+.meta-field.missing input {
+  border-color: var(--vermilion);
+  background: #fdf0ef;
+}
+
+.meta-field.missing span::after {
+  content: "（読み取れませんでした）";
+  color: var(--vermilion);
+  font-size: 0.78rem;
+  margin-left: 0.2rem;
+}
+
 .confirm-grid {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
