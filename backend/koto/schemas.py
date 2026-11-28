@@ -18,6 +18,8 @@ class Note:
     offset: float      # 小節の中の位置（拍単位。0, 1, 1.5 など）
     beats: float       # 長さ（拍単位）
     rest: bool         # 休符なら True
+    tuplet: int = 0    # 3連符などのまとまりの番号（曲の中で1から）。連符でなければ 0
+    tuplet_n: int = 0  # 何連符か（3連符なら 3）。連符でなければ 0
 
 
 @dataclass
@@ -29,6 +31,8 @@ class Score:
     beats: int          # 拍子の分子（4/4 の 4）
     beat_type: int      # 拍子の分母（4/4 の 4）
     notes: list[Note] = field(default_factory=list)
+    measure_count: int = 0  # 小節の数（タイで伸ばすだけの小節も数える）。0なら notes から数える
+    key_sharps: int = 0  # 調号の#の数（♭はマイナス。♭2つなら -2）。音名を♭で書くかに使う
 
 
 # ---------- ③ → ④ ----------

@@ -1,8 +1,9 @@
 # フロント設計書
 
-調弦の候補3案と、箏の楽譜（縦譜）を表示する画面です。プロジェクト全体の概要は [リポジトリのREADME](../README.md) を見てください。
+調弦の候補3案と、箏の楽譜（糸譜）を表示する画面です。PDF・画像から読み込んだときの確認画面（これから作る）もここに含みます。プロジェクト全体の概要は [リポジトリのREADME](../README.md) を見てください。
 
 **フロントの役割**：APIから返ってきたJSONを、並んでいる通りに描くこと。楽譜の解析や調弦の計算はすべてバックエンドで行います。
+確認画面だけは例外で、読み取った五線譜をユーザーが直せるように、フロントで音のリストを編集します（調弦の計算はしない）。
 
 ## スケジュール
 
@@ -29,9 +30,23 @@
 
 ## 画面
 
+```
+① アップロード → ② 確認（PDF・画像のときだけ。これから作る）→ ③ 調弦の候補 → ④ 糸譜
+```
+
+MusicXML を入れたときは②を飛ばして③へ進む。今の3画面に②を足すので、上の段階ナビと章の名前（今は序・破・急）を4つにする。
+
 **アップロード**
-- MusicXML（`.musicxml` / `.xml`）を選ぶとAPIに送る（当面は `sample.json` を読む）
+- MusicXML（`.musicxml` / `.xml`）を選ぶと `/api/analyze` に送る
+- PDF・画像（`.pdf` / `.png` / `.jpg`）を選ぶと `/api/convert` に送り、確認画面へ（これから作る）
 - 送信中は「解析中」などを表示。エラーのときはメッセージを表示
+- PDF・画像の読み取りは数十秒かかるので、「楽譜を読み取り中…」と、やめるボタン（`AbortController`）を出す
+
+**確認（これから作る）**
+- 左に原本（アップロードした PDF・画像）、右に読み取った五線譜を並べる
+- 拍が合わない小節（`suspiciousMeasures` と、編集するたびにフロントで確かめ直した結果）を赤枠で示す
+- 間違いがあれば、その場で直せる（下の「確認画面の作り方」）
+- 「これで糸譜を作る」で `/api/analyze-notes` に送り、③へ。赤い小節が残っていたら「このまま進みますか？」と確かめる（弱起などで短いだけのこともあるので、進めなくはしない）
 
 **調弦の候補3案**
 - カードに表示：`label`、`description`、`tuning`（13本の音名）、`changedStrings`（変える弦の本数）、`oshiCount`（押し手の回数）
@@ -47,7 +62,10 @@
 
 ## API
 
-- `POST http://localhost:8000/api/analyze`：MusicXMLを `multipart/form-data` で送る（フィールド名は `file` の予定）。下のJSONが返る
+- `POST http://localhost:8000/api/analyze`：MusicXMLを `multipart/form-data` で送る（フィールド名は `file`）。下のJSONが返る
+- `POST http://localhost:8000/api/convert`（これから）：PDF・画像を `multipart/form-data` で送る（フィールド名は `file`）。下の「確認画面のJSONの形」が返る
+- `POST http://localhost:8000/api/analyze-notes`（これから）：確認・編集が済んだ「確認画面のJSONの形」を `application/json` で送る。`/api/analyze` と同じ下のJSONが返る
+- エラーのときは `{"detail": "メッセージ"}` が返る
 - `GET http://localhost:8000/api/health`：動作確認用
 - http://localhost:8000/docs でAPIを試せる
 
@@ -82,10 +100,10 @@
 |---|---|
 | `title` / `composer` / `tempo` / `time` | 曲名、作曲者、テンポ（♩=いくつ）、拍子 |
 | `candidates` | 調弦の候補（A そのまま／B バランス／C 押し手ゼロ）。1〜3件。同じ調弦の案はまとめて先の1つだけ（例：B と C が同じなら A と B だけ）。平調子で弾けない曲は A がない。C は押し手0にできない曲では `label` が「押し手最少」になる（`oshiCount` が1以上）ので、ラベルは固定せず `label` をそのまま表示する |
-| `description` | 調弦の説明文 |
+| `description` | 調弦の説明文。変える弦が4本以上なら「平調子（一＝D）より5本の弦を変える」のように本数だけ書く |
 | `changedStrings` | 平調子から変える弦の本数 |
 | `oshiCount` | 押し手の回数 |
-| `tuning` | 一〜巾の13本それぞれの音名 |
+| `tuning` | 一〜巾の13本それぞれの音名。調号が♭系の曲は `B♭` `E♭` のように♭で、それ以外は `C#` のように#で書く |
 | `measures` | 小節のリスト → 拍のリスト → 音のリスト の3段 |
 
 | JSON | 楽譜に書くもの |
@@ -96,6 +114,131 @@
 | `{"string":"七","repeat":true}` | 、（前の音の繰り返し） |
 | `{"rest":true}` | ⊙（1拍ぶんの休符・伸ばし。続くときは ⊙⊙ と1マスずつ書く） |
 | `{"rest":true,"short":true}` | △（1拍より短い休符・伸ばし。マスの中で音と一緒に並ぶ。例：`[{"rest":true,"short":true},{"string":"八"}]` → △八） |
+
+## 確認画面のJSONの形
+
+`/api/convert` が返し、`/api/analyze-notes` に送るJSON。楽譜に書いてある通りの形にしてある（編集しやすいように）。
+メインの [README](../README.md) にも同じものを載せている。変えるときは両方直す。
+
+```json
+{
+  "title": "糸",
+  "composer": "中島みゆき",
+  "tempo": 80,
+  "time": { "beats": 4, "beatType": 4 },
+  "keySharps": -2,
+  "suspiciousMeasures": [1],
+  "measures": [
+    {
+      "notes": [
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "q", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 1 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "C", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "B", "alter": -1, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "G", "alter": 0, "octave": 4 }, "dur": "8", "dots": 0 }
+      ]
+    },
+    {
+      "notes": [
+        { "pitch": { "step": "F", "alter": 0, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0, "tie": true },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "q", "dots": 0 },
+        { "rest": true, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "B", "alter": -1, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "F", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 }
+      ]
+    }
+  ]
+}
+```
+
+**曲全体**
+
+| 項目 | 意味 |
+|---|---|
+| `title` / `composer` / `tempo` / `time` | 曲名、作曲者、テンポ（♩=いくつ）、拍子。`/api/analyze` と同じ |
+| `keySharps` | 調号の#の数（♭はマイナス。♭2つなら `-2`）。五線譜の調号を描くのと、↑↓キーで音を動かすのに使う |
+| `suspiciousMeasures` | 楽譜認識が怪しい小節の番号（**0始まり**。`measures` の何番目か）。赤枠を出す。`/api/analyze-notes` に送るときは付けなくていい |
+| `measures` | 小節のリスト。各小節の `notes` に、音符・休符を左から順に並べる |
+
+**音符・休符1つ**
+
+| 項目 | 意味 |
+|---|---|
+| `pitch` | 音の高さ。休符には付けない |
+| `pitch.step` | 音名（`C` `D` `E` `F` `G` `A` `B`） |
+| `pitch.alter` | 実際に鳴る音の変化（`-1`＝♭、`0`、`1`＝#）。**調号で付く♭・#も含める**（♭2つの曲の B は `-1`）。MusicXML の `<alter>` と同じ |
+| `pitch.octave` | オクターブ（真ん中のド＝`C4`）。MusicXML と同じ |
+| `rest` | 休符なら `true`。音符なら書かない |
+| `dur` | 音符の種類：`"w"` 全音符、`"h"` 2分、`"q"` 4分、`"8"` 8分、`"16"` 16分、`"32"` 32分 |
+| `dots` | 付点の数（`0` か `1`） |
+| `tie` | 次の音とタイでつながっているなら `true`（小節をまたいでもいい）。**まとめずに分けたまま**。まとめるのは `/api/analyze-notes` の中 |
+| `tuplet` | 連符のまとまりの番号（曲の中で1から）。同じまとまりの音には同じ番号。連符でなければ書かない |
+| `tupletN` | 何連符か（3連符なら `3`）。`tuplet` があるときだけ |
+
+**決めごと**
+- 長さ・拍の位置はJSONに持たない（`dur`・`dots`・連符から計算できる）。小節の中の位置は、前の音から足していけば出る
+- 1パート・単旋律だけ（今の解析と同じ）：パートが複数なら1つ目、和音は一番上の音、声部が複数なら1つ目。装飾音は入れない
+- 拍が合わない小節もそのまま返す（直すのは確認画面でユーザーがやる）
+- 曲の最後に続く休符だけの小節は、`/api/convert` で取り除いて返す
+- 1小節目は弱起で短くてもいい
+- 途中で拍子・調号が変わる曲は、今は考えない（最初のものを使う）
+
+## 確認画面の作り方（これから作る）
+
+**ファイルの分け方**
+
+| ファイル | 役割 |
+|---|---|
+| `src/api.js` | `convertFile()`（PDF・画像 → 確認画面のJSON）と `analyzeNotes()`（確認画面のJSON → 調弦の候補）を足す |
+| `src/confirm/original.js` | 原本の表示。PDFは PDF.js、画像は `<img>`。アップロードしたファイルをそのまま使う（バックエンドは使わない） |
+| `src/confirm/model.js` | 編集用のデータと、編集の操作、小節の拍の確認、元に戻す。画面に触らない関数だけにする |
+| `src/confirm/notation.js` | VexFlow で五線譜を描く。どの音符がデータの何番目かを覚えておく |
+| `src/confirm/editor.js` | クリック・キー操作・ツールバーのボタンを、model.js の操作につなぐ |
+
+足すライブラリ：`vexflow`、`pdfjs-dist`
+
+**原本**
+- PDF.js で全ページを canvas に描き、縦にスクロールして見られるようにする。拡大・縮小のボタンがあると見比べやすい
+- Vite では worker の場所を指定する：`GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url)`
+
+**五線譜**
+- 1段に4小節。連桁は `Beam.generateBeams`、タイは `StaveTie`、3連符は `Tuplet`、調号は `KeySignature`
+- 拍が合わない小節も描けるように、`Voice` は `SOFT` モードにする（そうしないとエラーになる）
+- 臨時記号を描くかどうかは `Accidental.applyAccidentals` で、調号と `alter` から決める
+- 拍が合わない小節は、うしろに赤い四角を敷いて示す
+- 編集するたびに全部描き直す
+
+**編集**
+
+ボタンを主にして、キーはおまけ（部活の学生は MuseScore のキー操作を知らない人が多いため）。
+
+| 操作 | ボタン | キー |
+|---|---|---|
+| 音符を選ぶ | クリック | ← → |
+| 高さ | ▲▼ | ↑ ↓（調号に合わせて1音ずつ） |
+| ♯・♭・♮ | ボタン | — |
+| 長さ | 16分・8分・4分・2分・全音符 | 数字キー |
+| 付点 | ・ | . |
+| 休符にする／音符に戻す | ボタン | 0 |
+| 消す | 🗑 | Delete（消すと休符になる。小節の長さが崩れない） |
+| 音を足す | ＋ | — |
+| タイ | ⌒ | T |
+| 元に戻す／やり直す | ↶ ↷ | Ctrl+Z / Ctrl+Y |
+
+元に戻すは、編集の前にデータ全体をコピーして積んでおく。
+
+**作る順番**
+1. 解析担当に、`ito.musicxml` から確認画面のJSONを出してもらい、ダミーデータにする
+2. 確認画面の枠と画面の流れ（4画面にする、PDF・画像を受け付ける、読み取り中の表示）
+3. 原本の表示（PDF.js）
+4. 五線譜の表示（VexFlow）＋赤枠＋「これで糸譜を作る」→ 一通りつながる
+5. 編集：まず選ぶ・高さ・長さ・消す・元に戻す。そのあと休符・付点・タイ・足す・♯♭
+6. 余裕があれば：原本の対応する場所を光らせる、直した MusicXML のダウンロード
 
 ## 縦譜の描き方
 

@@ -1,18 +1,19 @@
 # itofu（糸譜変換）
 
-五線譜の楽譜データ（MusicXML）を入れると、弾きやすい調弦の候補3案と、糸譜(箏の楽譜)が自動で出てくるWebアプリ。
+五線譜の楽譜（MusicXML、またはPDF・画像）を入れると、弾きやすい調弦の候補3案と、糸譜(箏の楽譜)が自動で出てくるWebアプリ。
 58ハッカソン2026（テーマ「ito」）の作品です。
 
 - **ペルソナ**：部活でJ-POPを弾きたいけど、五線譜を箏の楽譜に書き直すのが大変な人
-- **使い方**：MusicXMLをアップロード → 調弦の候補3案（そのまま／バランス／押し手ゼロ）から選ぶ → その調弦に合わせた縦譜が表示される
+- **使い方**：MusicXMLをアップロード → 調弦の候補3案（そのまま／バランス／押し手ゼロ）から選ぶ → その調弦に合わせた糸譜が表示される
+- **PDF・画像のとき（これから作る）**：PDF・画像をアップロード → 読み取った五線譜を原本と見比べて確認・修正 → 調弦の候補3案 → 糸譜
 
 ## 担当
 
 | 担当 | 内容 |
 |---|---|
-| フロント担当 | 画面 |
-| 解析担当 | ② 解析、④ 整形、API |
-| アルゴリズム担当 | ③ アルゴリズム、Docker環境 |
+| フロント担当 | 画面（確認画面を含む） |
+| 解析担当 | ① 楽譜認識の呼び出し、② 解析、④ 整形、API |
+| アルゴリズム担当 | ③ アルゴリズム、Docker環境（Audiverisを入れる） |
 
 
 ## 全体の流れ
@@ -23,15 +24,30 @@ MusicXML
  → ③ アルゴリズム：調弦の3案と、各音の弦・押し手を決める
  → ④ 整形：フロントと約束したJSONにする
  → API：フロントに返す
- → 画面：調弦の候補と縦譜を表示する
+ → 画面：調弦の候補と糸譜を表示する
 ```
 
-① 入口（楽譜の画像 → MusicXML）は余裕があれば。本体が動いてから判断する。
+### PDF・画像から読み込む（これから作る）
+
+```
+PDF・画像
+ → ① 入口：楽譜認識ソフト Audiveris で MusicXML にする
+ → ② 解析：楽譜に書いてある通りの音のリスト（確認画面のJSON）にする
+ → 確認画面：原本と、読み取った五線譜を並べて表示する。間違いがあればユーザーがその場で直す
+ → ② 解析：直した音のリストを、今の音のリスト（タイをまとめたもの）にする
+ → ③ → ④ → 画面（今まで通り）
+```
+
+- 楽譜認識は100%正確ではない（特に16分音符やタイ）ので、確認画面をはさむ
+- 編集するのは MusicXML ではなく「音のリスト」。編集が作りやすく、直したらそのまま③に渡せる
+- 今の MusicXML のアップロードはそのまま残す（確認画面は通らない）
+- 確認画面のJSONの形は下の「部品の間の約束」、画面の作り方は [frontend/README.md](frontend/README.md) にまとめている
 
 ## 技術
 
-- フロント：フロント担当が決める
+- フロント：Vite ＋ 素のHTML/CSS/JS。確認画面では VexFlow（五線譜の表示・編集）と PDF.js（原本のPDFの表示）を使う予定
 - バックエンド：Python 3.14.8、FastAPI ＋ uvicorn、music21（MusicXMLの読み込み）
+- 楽譜認識：Audiveris（PDF・画像 → MusicXML。Javaのソフトをコマンドとして呼ぶ。ライセンスはAGPL）
 - 環境：Docker
 
 ## フォルダ構成
@@ -46,6 +62,7 @@ backend/
     tuning.py          ③ 調弦の探索（アルゴリズム担当）
     grid.py            ④ 整形：音を「小節 → 拍 → 音」の3段に並べる（解析担当）
     to_json.py         ④ 整形：フロントと約束したJSONを組み立てる（解析担当）
+    omr.py             ① 入口：PDF・画像 → Audiveris → MusicXML（予定、解析担当）
   run_local.py         手元での動作確認用
   requirements.txt     使うライブラリの一覧
   samples/             テスト用の楽譜（著作権の切れた曲だけ）
@@ -57,11 +74,11 @@ Docker環境とAPIの土台として、次のファイルを追加済みです�
 - `docker-compose.yml`：バックエンドの起動・ポート公開・自動リロード設定
 - `backend/Dockerfile`：Python 3.14.8と依存ライブラリの環境構築
 - `backend/.dockerignore`：イメージに含めないファイルの指定
-- `backend/main.py`：APIの土台、CORS設定、`/api/health`（今後は解析担当が拡張）
+- `backend/main.py`：API本体、CORS設定、`/api/health`、`/api/analyze`
 - `.env.example`：環境変数の記入例
 
-追加予定：`backend/koto/schemas.py`（部品の間のデータの型、解析担当が作成・バックエンドの2人で合意）。
-`parse.py`、`assign.py`、`tuning.py`、`grid.py`、`to_json.py`はファイルのみ用意済みで、処理はこれから実装します。
+部品の間のデータの型は `backend/koto/schemas.py` にあります（変えるときはバックエンドの2人で相談）。
+MusicXML から糸譜のJSONまで（②〜④とAPI）は実装済みです。PDF・画像の読み込み（①と確認画面）はこれから作ります。
 
 ## Dockerでバックエンドを開発する
 
@@ -81,7 +98,7 @@ docker compose up --build
 
 - APIドキュメント：http://localhost:8000/docs
 - 動作確認：http://localhost:8000/api/health （`{"status":"ok"}`を返す）
-- まだ楽譜変換のAPIは実装していません。main.pyはAPI担当者が拡張する土台です。
+- 楽譜変換：http://localhost:8000/docs の `POST /api/analyze` に MusicXML を送ると、フロント用のJSONが返る
 
 backendフォルダをコンテナの/appと共有しています。Pythonコードを保存するとuvicornの
 --reloadでAPIが再起動します。requirements.txtやDockerfileを変えた場合は、ライブラリを
@@ -153,15 +170,16 @@ backend/privateの曲と.envはコミットしません。privateはイメージ
 
 ## API
 
-現在実装済みなのは`GET /api/health`です。`POST /api/analyze`は実装予定、`POST /api/omr`は余裕があれば追加します。
-`/docs`は開けますが、楽譜アップロードによる変換確認は`/api/analyze`の実装・接続後に行います。
 フロント担当はDocker不要で、バックエンド担当が起動したAPIに接続できます。別PCからの接続方法は上の「環境変数とフロント接続」を参照してください。
 
-| メソッド | パス | 内容 |
-|---|---|---|
-| POST | `/api/analyze` | MusicXMLのファイルを受け取り、フロント用のJSONを返す |
-| GET | `/api/health` | サーバーが動いているかの確認 |
-| POST | `/api/omr` | （余裕があれば）画像を受け取り、MusicXMLを返す |
+| メソッド | パス | 内容 | 状態 |
+|---|---|---|---|
+| GET | `/api/health` | サーバーが動いているかの確認 | 実装済み |
+| POST | `/api/analyze` | MusicXMLのファイルを受け取り、フロント用のJSON（調弦の候補と糸譜）を返す | 実装済み |
+| POST | `/api/convert` | PDF・画像を受け取り、楽譜認識して確認画面のJSONを返す | これから |
+| POST | `/api/analyze-notes` | 確認・編集が済んだ確認画面のJSONを受け取り、`/api/analyze` と同じJSONを返す | これから |
+
+`/api/convert` と `/api/analyze-notes` のJSONの形は、下の「部品の間の約束」の「確認画面のJSON」を見てください。
 
 ## 部品の間の約束
 
@@ -172,8 +190,11 @@ backend/privateの曲と.envはコミットしません。privateはイメージ
 - `offset`：小節の中の位置（拍単位。0, 1, 1.5 など）
 - `beats`：長さ（拍単位）
 - `rest`：休符かどうか
+- `tuplet` / `tuplet_n`：3連符などのまとまりの番号と、何連符か（連符でなければ 0）
 
 和音は一番上の音だけ。タイでつながった音は1つにまとめる。
+
+確認画面のJSON（楽譜に書いてある通りの形。タイは分けたまま）とは別物です。`/api/analyze-notes` で確認画面のJSONをこの形に直してから③に渡します。
 
 ### ③ → ④ 調弦の候補（3案）
 
@@ -188,6 +209,79 @@ backend/privateの曲と.envはコミットしません。privateはイメージ
 ### ④ → フロント
 
 JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) にまとめています（フロントとの約束はこちらが正）。
+
+### 確認画面のJSON（`/api/convert` → フロント → `/api/analyze-notes`）
+
+`/api/convert` が返し、`/api/analyze-notes` に送るJSON。楽譜に書いてある通りの形にしてある（編集しやすいように）。
+[frontend/README.md](frontend/README.md) にも同じものを載せている。変えるときは両方直す。
+
+```json
+{
+  "title": "糸",
+  "composer": "中島みゆき",
+  "tempo": 80,
+  "time": { "beats": 4, "beatType": 4 },
+  "keySharps": -2,
+  "suspiciousMeasures": [1],
+  "measures": [
+    {
+      "notes": [
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "q", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 1 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "C", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "B", "alter": -1, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "G", "alter": 0, "octave": 4 }, "dur": "8", "dots": 0 }
+      ]
+    },
+    {
+      "notes": [
+        { "pitch": { "step": "F", "alter": 0, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "16", "dots": 0, "tie": true },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "q", "dots": 0 },
+        { "rest": true, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "B", "alter": -1, "octave": 4 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "D", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 },
+        { "pitch": { "step": "F", "alter": 0, "octave": 5 }, "dur": "8", "dots": 0 }
+      ]
+    }
+  ]
+}
+```
+
+#### 曲全体
+
+| 項目 | 意味 |
+|---|---|
+| `title` / `composer` / `tempo` / `time` | 曲名、作曲者、テンポ（♩=いくつ）、拍子。`/api/analyze` と同じ |
+| `keySharps` | 調号の#の数（♭はマイナス。♭2つなら `-2`）。五線譜の調号を描くのと、↑↓キーで音を動かすのに使う |
+| `suspiciousMeasures` | 楽譜認識が怪しい小節の番号（**0始まり**。`measures` の何番目か）。赤枠を出す。`/api/analyze-notes` に送るときは付けなくていい |
+| `measures` | 小節のリスト。各小節の `notes` に、音符・休符を左から順に並べる |
+
+#### 音符・休符1つ
+
+| 項目 | 意味 |
+|---|---|
+| `pitch` | 音の高さ。休符には付けない |
+| `pitch.step` | 音名（`C` `D` `E` `F` `G` `A` `B`） |
+| `pitch.alter` | 実際に鳴る音の変化（`-1`＝♭、`0`、`1`＝#）。**調号で付く♭・#も含める**（♭2つの曲の B は `-1`）。MusicXML の `<alter>` と同じ |
+| `pitch.octave` | オクターブ（真ん中のド＝`C4`）。MusicXML と同じ |
+| `rest` | 休符なら `true`。音符なら書かない |
+| `dur` | 音符の種類：`"w"` 全音符、`"h"` 2分、`"q"` 4分、`"8"` 8分、`"16"` 16分、`"32"` 32分 |
+| `dots` | 付点の数（`0` か `1`） |
+| `tie` | 次の音とタイでつながっているなら `true`（小節をまたいでもいい）。**まとめずに分けたまま**。まとめるのは `/api/analyze-notes` の中 |
+| `tuplet` | 連符のまとまりの番号（曲の中で1から）。同じまとまりの音には同じ番号。連符でなければ書かない |
+| `tupletN` | 何連符か（3連符なら `3`）。`tuplet` があるときだけ |
+
+#### 決めごと
+- 長さ・拍の位置はJSONに持たない（`dur`・`dots`・連符から計算できる）。小節の中の位置は、前の音から足していけば出る
+- 1パート・単旋律だけ（今の解析と同じ）：パートが複数なら1つ目、和音は一番上の音、声部が複数なら1つ目。装飾音は入れない
+- 拍が合わない小節もそのまま返す（直すのは確認画面でユーザーがやる）
+- 曲の最後に続く休符だけの小節は、`/api/convert` で取り除いて返す
+- 1小節目は弱起で短くてもいい
+- 途中で拍子・調号が変わる曲は、今は考えない（最初のものを使う）
 
 ## ③ アルゴリズム
 
@@ -232,12 +326,21 @@ JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) に�
    - アルゴリズム担当：`assign.py`。平調子に固定し、手で作った音のリストで動かす
 3. つなぐ：parse → assign（平調子固定）→ grid → to_json → API。1案だけでもフロントにJSONが返る → フロントとつないでみる
 4. `tuning.py`：3案が出る（アルゴリズム担当）
-5. デモ曲で確認、改良、入口を入れるか判断
+5. デモ曲で確認、改良
 
 **当日までの目標**
 - 最低限：3まで（デモ曲を入れるとJSONが返る）
 - 理想：4の試作まで。フロントと一度つながっている
 - 1日目15時の中間発表で「アップロード → 縦譜」を見せたい
+
+### PDF・画像の読み込み（次の段階）
+
+1. 解析担当：MusicXML → 確認画面のJSON を先に作る（Audiverisがなくても `ito.musicxml` で作れる）。フロントはこれをダミーデータにして画面を作り始める
+2. 並行して進める
+   - アルゴリズム担当：Dockerのイメージに Audiveris を入れる（約80MB増える）
+   - 解析担当：`/api/convert`（PDF・画像 → Audiveris → 確認画面のJSON ＋ 怪しい小節）と `/api/analyze-notes`
+   - フロント担当：確認画面（原本の表示 → 五線譜の表示 → 編集）
+3. つなぐ：PDF をアップロード → 確認 → 糸譜 が一通り動く
 
 ## ルール
 
@@ -250,4 +353,5 @@ JSONの形と縦譜の描き方は [frontend/README.md](frontend/README.md) に�
 ## まだ決まっていないこと
 
 - 採点の重み：強押しと弱押しの差、調弦替え1本と押し手1回のどちらを重く見るか、手の移動の重み
-- 入口を誰がいつ試すか
+- 写真の楽譜をどこまで受け付けるか（Audiverisは写真だと精度がかなり落ちる。スキャンかPDFをすすめる）
+- Audiveris のライセンス（AGPL）：デモでは問題ないが、公開し続けるなら確認が必要
