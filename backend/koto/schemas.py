@@ -18,6 +18,8 @@ class Note:
     offset: float      # 小節の中の位置（拍単位。0, 1, 1.5 など）
     beats: float       # 長さ（拍単位）
     rest: bool         # 休符なら True
+    tuplet: int = 0    # 3連符などのまとまりの番号（曲の中で1から）。連符でなければ 0
+    tuplet_n: int = 0  # 何連符か（3連符なら 3）。連符でなければ 0
 
 
 @dataclass

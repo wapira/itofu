@@ -37,14 +37,23 @@ def describe(base: int, changes: list[Change], flats: bool = False) -> str:
 
 
 def _item_to_json(item: dict) -> dict:
-    """grid.py の1要素を、フロント用の形にする。"""
+    """grid.py の1要素を、フロント用の形にする。
+
+    pos（拍の中の位置）は 0 のときは書かない。
+    tuplet は {"id": まとまりの番号, "n": 何連符か}。
+    """
     if item.get("rest"):
-        return {"rest": True, "short": True} if item["short"] else {"rest": True}
-    out = {"string": STRING_NAMES[item["string"]]}
-    if item["oshi"]:
-        out["oshi"] = OSHI[item["oshi"]]
-    if item["repeat"]:
-        out["repeat"] = True
+        out = {"rest": True, "short": True} if item["short"] else {"rest": True}
+    else:
+        out = {"string": STRING_NAMES[item["string"]]}
+        if item["oshi"]:
+            out["oshi"] = OSHI[item["oshi"]]
+        if item["repeat"]:
+            out["repeat"] = True
+    if item.get("pos"):
+        out["pos"] = item["pos"]
+    if item.get("tuplet"):
+        out["tuplet"] = {"id": item["tuplet"][0], "n": item["tuplet"][1]}
     return out
 
 

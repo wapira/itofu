@@ -15,7 +15,7 @@
         [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九", "oshi": "ヲ" } ], [ { "string": "八" } ] ],
-        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六", "oshi": "オ" } ], [ { "rest": true } ] ]
+        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七", "pos": 0.5 } ], [ { "string": "六", "oshi": "オ" } ], [ { "rest": true } ] ]
       ]
     },
     {
@@ -29,7 +29,7 @@
         [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九", "oshi": "ヲ" } ], [ { "string": "八" } ] ],
-        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六" } ], [ { "rest": true } ] ]
+        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七", "pos": 0.5 } ], [ { "string": "六" } ], [ { "rest": true } ] ]
       ]
     },
     {
@@ -43,7 +43,7 @@
         [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九" } ], [ { "string": "八" } ] ],
-        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六" } ], [ { "rest": true } ] ]
+        [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七", "pos": 0.5 } ], [ { "string": "六" } ], [ { "rest": true } ] ]
       ]
     }
   ]

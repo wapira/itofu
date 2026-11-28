@@ -81,6 +81,7 @@ function updatePillar(data, candidate) {
  * 2ページ目からは COLUMNS_PER_PAGE 行ずつに分ける。
  */
 function renderGrid(measures) {
+    startedTuplets.clear();
     const columns = buildColumns(measures);
 
     // 1ページ目：HTML にある枠（#tatefu-grid）に入れる
@@ -167,44 +168,95 @@ function createExtraPage(legend) {
  *     [{ string: "九", oshi: "ヲ" }]
  *     [{ rest: true }]
  *     [{ string: "七", repeat: true }]
- *     [{ string: "八" }, { string: "七" }]  ← 1拍に複数音
+ *     [{ string: "七" }, { string: "八", pos: 0.5 }]           ← 8分音符2つ
+ *     [{ string: "七", tuplet: { id: 1, n: 3 } }, ...]          ← 3連符
+ *
+ * pos は拍の中で始まる位置（0〜1、省略は 0）。
+ * ふつうの拍：マスの真ん中に細い線を引き、前半（pos < 0.5）の音は線より上、
+ *             後半の音は線より下に置く。
+ * 連符を含む拍：半分の線は引かず、音を均等に並べて「（」と数字でくくる。
  */
 function renderBeat(beat) {
     const cell = document.createElement('div');
     cell.className = 'beat-cell';
-    // マスの大きさは一定。音が多いほど CSS で文字を小さく詰めて表示する
-    cell.style.setProperty('--n', Math.max(beat.length, 1));
 
-    beat.forEach((note) => {
-        if (note.rest) {
-            const mark = document.createElement('span');
-            mark.className = note.short ? 'short-rest-mark' : 'rest-mark';
-            mark.textContent = note.short ? '△' : '⊙';
-            cell.appendChild(mark);
-            return;
-        }
+    if (beat.some((note) => note.tuplet)) {
+        cell.classList.add('beat-even');
+        fillItems(cell, beat);
+        return cell;
+    }
 
-        if (note.repeat) {
-            const mark = document.createElement('span');
-            mark.className = 'repeat-mark';
-            mark.textContent = '、';
-            cell.appendChild(mark);
-            return;
-        }
-
-        const noteEl = document.createElement('span');
-        noteEl.className = 'beat-note';
-
-        if (note.oshi) {
-            const oshiMark = document.createElement('span');
-            oshiMark.className = 'oshi-mark';
-            oshiMark.textContent = note.oshi;
-            noteEl.appendChild(oshiMark);
-        }
-
-        noteEl.append(note.string);
-        cell.appendChild(noteEl);
+    cell.classList.add('beat-halves');
+    const first = beat.filter((note) => (note.pos ?? 0) < 0.5 - 1e-6);
+    const second = beat.filter((note) => (note.pos ?? 0) >= 0.5 - 1e-6);
+    [first, second].forEach((items) => {
+        const half = document.createElement('div');
+        half.className = 'beat-half';
+        fillItems(half, items);
+        cell.appendChild(half);
     });
-
     return cell;
+}
+
+/**
+ * 音・記号を container に縦に並べる。連符のまとまりは「（」でくくる。
+ * --n（並べる数）で文字の大きさを決める（CSS）。
+ */
+function fillItems(container, items) {
+    container.style.setProperty('--n', Math.max(items.length, 1));
+
+    let group = null;
+    items.forEach((note) => {
+        const el = renderItem(note);
+        if (!note.tuplet) {
+            group = null;
+            container.appendChild(el);
+            return;
+        }
+        if (!group || group.dataset.id !== String(note.tuplet.id)) {
+            group = document.createElement('span');
+            group.className = 'tuplet-group';
+            group.dataset.id = note.tuplet.id;
+            // 数字は連符の最初のマスにだけ書く（2拍にまたがる連符もある）
+            if (!startedTuplets.has(note.tuplet.id)) {
+                startedTuplets.add(note.tuplet.id);
+                group.dataset.n = note.tuplet.n;
+            }
+            container.appendChild(group);
+        }
+        group.appendChild(el);
+    });
+}
+
+/** 描画中に数字を書いた連符の番号（renderGrid のたびに空にする） */
+const startedTuplets = new Set();
+
+/** 音・休符・「、」1つぶんの要素 */
+function renderItem(note) {
+    if (note.rest) {
+        const mark = document.createElement('span');
+        mark.className = 'beat-item ' + (note.short ? 'short-rest-mark' : 'rest-mark');
+        mark.textContent = note.short ? '△' : '⊙';
+        return mark;
+    }
+
+    if (note.repeat) {
+        const mark = document.createElement('span');
+        mark.className = 'beat-item repeat-mark';
+        mark.textContent = '、';
+        return mark;
+    }
+
+    const noteEl = document.createElement('span');
+    noteEl.className = 'beat-item beat-note';
+
+    if (note.oshi) {
+        const oshiMark = document.createElement('span');
+        oshiMark.className = 'oshi-mark';
+        oshiMark.textContent = note.oshi;
+        noteEl.appendChild(oshiMark);
+    }
+
+    noteEl.append(note.string);
+    return noteEl;
 }

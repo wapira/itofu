@@ -6,6 +6,9 @@
   {"string": 6, "oshi": 0, "repeat": False}   音
   {"rest": True, "short": False}               ⊙ 1拍ぶんの休符・伸ばし
   {"rest": True, "short": True}                △ 1拍より短い休符・伸ばし
+どの要素にも次の2つが付く：
+  "pos"    拍の中で始まる位置（0＝拍の頭、0.5＝拍の真ん中）
+  "tuplet" 3連符などのまとまり (番号, 何連符か)。連符でなければ None
 
 ルール：
   - 1マス＝1拍。そのマスの中で始まる音を、時間の順に縦に並べる
@@ -59,6 +62,8 @@ def build_grid(notes: list[Note], assignments: list[Assignment | None],
                 raise ValueError("音なのに弦の割り当てがありません")
             item = {"string": assignment.string, "oshi": assignment.oshi,
                     "repeat": False}
+        item["pos"] = round(note.offset - beat, 4)
+        item["tuplet"] = (note.tuplet, note.tuplet_n) if note.tuplet else None
         row[beat].append((note.offset, item))
 
     grid = []
@@ -68,20 +73,25 @@ def build_grid(notes: list[Note], assignments: list[Assignment | None],
             items: list[dict] = []
             beat_start = b_index
             if not cell:
-                items.append(dict(FULL_REST))       # 何も始まらない拍
+                items.append(_rest(FULL_REST))      # 何も始まらない拍
             else:
                 if cell[0][0] > beat_start + EPS:
-                    items.append(dict(SHORT_REST))  # 拍の頭は前の音・休符の続き
+                    items.append(_rest(SHORT_REST)) # 拍の頭は前の音・休符の続き
                 for _, item in cell:
                     if item.get("rest") and items and items[-1].get("rest"):
                         continue                    # 休符・伸ばしが続くならまとめる
                     items.append(item)
                 if not any("string" in i for i in items):
-                    items = [dict(FULL_REST)]       # 音が1つも始まらない拍は ⊙
+                    items = [_rest(FULL_REST)]      # 音が1つも始まらない拍は ⊙
             measure.append(items)
         grid.append(measure)
     mark_repeats(grid)
     return grid
+
+
+def _rest(kind: dict) -> dict:
+    """拍の頭に置く休符・伸ばし（楽譜の音から作ったものではない）。"""
+    return {**kind, "pos": 0.0, "tuplet": None}
 
 
 def mark_repeats(grid: list[list[list[dict]]]) -> None:

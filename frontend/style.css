@@ -825,11 +825,57 @@ body {
   position: relative;
 }
 
-/* マスの中の音・記号。--n（そのマスの音の数）で高さを分け合う。
+/* マスの中の音・記号。--h（並べる場所の高さ）を --n（並べる数）で分け合う。
    拍が多い曲や音が多い拍ほど、文字の縦幅が狭くなる */
-.beat-cell > span {
-  font-size: min(1.25rem, calc(78cqh / var(--n, 1)));
+.beat-item {
+  font-size: min(1.25rem, calc(var(--h, 78cqh) / var(--n, 1)));
   line-height: 1.1;
+}
+
+/* ふつうの拍：上半分＝拍の前半に始まる音、下半分＝後半に始まる音 */
+.beat-cell.beat-halves {
+  justify-content: stretch;
+}
+.beat-half {
+  --h: 39cqh;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+/* 拍の真ん中の細い線（マスの幅の半分だけ。左寄せ） */
+.beat-cell.beat-halves::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 30%;
+  border-top: 1px solid #c9bfa9;
+  pointer-events: none;
+}
+
+/* 連符：最初の音から最後の音までを「（」でくくり、横に数字（3など） */
+.tuplet-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-left: 0.3em;
+  border-left: 1.2px solid var(--ink-sumi);
+  border-radius: 0.9em 0 0 0.9em;
+}
+.tuplet-group[data-n]::before {
+  content: attr(data-n);
+  position: absolute;
+  left: -0.85em;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--ink-sumi);
 }
 
 .beat-cell:last-child {
