@@ -1,12 +1,25 @@
-/**                                                                                                            
- * 糸譜変換アプリ — エントリポイント                                                                           
+/**
+ * 糸譜変換アプリ — エントリポイント
  * 状態管理・画面遷移・イベント配線を担当する。
- * 描画は tuning.js / score.js に委譲する。
+ * 描画は tuning.js / score.js / confirm/ に委譲する。
  */
-import { analyzeFile, loadSampleScore } from './api.js';
+import {
+    analyzeFile, analyzeNotes, convertFile, loadConfirmSample, loadSampleScore,
+} from './api.js';
 import { SAMPLE_SCORES } from './constants.js';
 import { renderTuningCards } from './tuning.js';
 import { renderScore, fitBeatText } from './score.js';
+import { createConfirmScreen } from './confirm/editor.js';
+import { isImage, isPdf } from './confirm/original.js';
+
+
+
+/**
+ * 画面の番号
+ *   MusicXML のとき：UPLOAD → TUNING → SCORE
+ *   PDF・画像のとき：UPLOAD → CONFIRM → TUNING → SCORE
+ */
+const STEP = { UPLOAD: 1, CONFIRM: 2, TUNING: 3, SCORE: 4 };
 
 
 
@@ -16,6 +29,7 @@ import { renderScore, fitBeatText } from './score.js';
 const state = {
     data: null,               // API / sample.json のレスポンス全体
     selectedCandidateId: 'B', // 選択中の候補 ID（初期値 B）
+    hasConfirm: false,        // 確認画面を開いたか（PDF・画像から読み込んだか）
 };
 
 
@@ -24,15 +38,17 @@ const state = {
  * DOM 参照
  */
 const screens = {
-    1: document.getElementById('screen-upload'),
-    2: document.getElementById('screen-tuning'),
-    3: document.getElementById('screen-score'),
+    [STEP.UPLOAD]: document.getElementById('screen-upload'),
+    [STEP.CONFIRM]: document.getElementById('screen-confirm'),
+    [STEP.TUNING]: document.getElementById('screen-tuning'),
+    [STEP.SCORE]: document.getElementById('screen-score'),
 };
 
 const navButtons = {
-    1: document.getElementById('nav-step-1'),
-    2: document.getElementById('nav-step-2'),
-    3: document.getElementById('nav-step-3'),
+    [STEP.UPLOAD]: document.getElementById('nav-step-1'),
+    [STEP.CONFIRM]: document.getElementById('nav-step-2'),
+    [STEP.TUNING]: document.getElementById('nav-step-3'),
+    [STEP.SCORE]: document.getElementById('nav-step-4'),
 };
 
 const dropZone = document.getElementById('drop-zone');
@@ -40,6 +56,15 @@ const dropZoneMain = dropZone.querySelector('.dropzone-main');
 const dropZoneIcon = dropZone.querySelector('.dropzone-icon');
 const fileInput = document.getElementById('file-input');
 const errorEl = document.getElementById('upload-error');
+const cancelRow = document.getElementById('upload-cancel-row');
+
+const confirmScreen = createConfirmScreen({
+    root: screens[STEP.CONFIRM],
+    onSubmit: async (notes) => {
+        const json = await analyzeNotes(notes);
+        handleData(json);
+    },
+});
 
 
 
@@ -55,9 +80,11 @@ function showStep(stepNumber) {
 
     Object.entries(navButtons).forEach(([num, btn]) => {
         const n = Number(num);
+        // 確認画面は、PDF・画像から読み込んだときだけ行ける
+        const skipped = n === STEP.CONFIRM && !state.hasConfirm;
         btn.classList.toggle('active', n === stepNumber);
-        btn.disabled = n > stepNumber;
-        if (n < stepNumber) btn.classList.add('completed');
+        btn.disabled = n > stepNumber || skipped;
+        btn.classList.toggle('completed', n < stepNumber && !skipped);
     });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -75,7 +102,7 @@ function handleData(json) {
     errorEl.hidden = true;
 
     renderTuningCards(state, onSelectCandidate);
-    showStep(2);
+    showStep(STEP.TUNING);
 }
 
 function onSelectCandidate(candidateId, navigate) {
@@ -86,8 +113,15 @@ function onSelectCandidate(candidateId, navigate) {
 
 function showScore() {
     renderScore(state);
-    showStep(3);
+    showStep(STEP.SCORE);
     fitBeatText(); // 表示されて高さが測れるようになってから、文字の縦の縮みを計算する
+}
+
+/** 確認画面を開く（file：原本、data：確認画面のJSON） */
+async function openConfirm(file, data) {
+    state.hasConfirm = true;
+    showStep(STEP.CONFIRM);
+    await confirmScreen.open(file, data);
 }
 
 
@@ -95,25 +129,47 @@ function showScore() {
 /**
  * ファイルアップロード
  */
-function setLoading(on) {
+let abortController = null;
+
+function setLoading(on, message = '変換中…') {
     dropZone.classList.toggle('loading', on);
     dropZone.style.pointerEvents = on ? 'none' : '';
     dropZoneIcon.textContent = on ? '⏳' : '🎼';
-    dropZoneMain.textContent = on ? '変換中…' : 'ここに MusicXML ファイルをドラッグ＆ドロップ';
+    dropZoneMain.textContent = on ? message : 'ここに楽譜ファイルをドラッグ＆ドロップ';
+    if (!on) cancelRow.hidden = true;
+}
+
+function showUploadError(message) {
+    errorEl.textContent = message;
+    errorEl.hidden = false;
 }
 
 async function handleFileUpload(file) {
     if (!file) return;
     errorEl.hidden = true;
-    setLoading(true);
     try {
-        const json = await analyzeFile(file);
-        handleData(json);
+        if (isPdf(file) || isImage(file)) {
+            // PDF・画像：楽譜認識（数十秒かかる）→ 確認画面
+            abortController = new AbortController();
+            setLoading(true, '楽譜を読み取り中…（1ページ数十秒かかります）');
+            cancelRow.hidden = false;
+            const data = await convertFile(file, abortController.signal);
+            setLoading(false);
+            await openConfirm(file, data);
+        } else {
+            setLoading(true);
+            const json = await analyzeFile(file);
+            state.hasConfirm = false;
+            handleData(json);
+        }
     } catch (err) {
-        errorEl.textContent = err.message || 'ファイルの読み込みに失敗しました。';
-        errorEl.hidden = false;
+        if (err.name !== 'AbortError') {
+            showUploadError(err.message || 'ファイルの読み込みに失敗しました。');
+        }
     } finally {
+        abortController = null;
         setLoading(false);
+        fileInput.value = '';  // 同じファイルをもう一度選べるように
     }
 }
 
@@ -147,6 +203,9 @@ fileInput.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (file) handleFileUpload(file);
 });
+document.getElementById('btn-upload-cancel').addEventListener('click', () => {
+    abortController?.abort();
+});
 
 // お試しボタン（SAMPLE_SCORES から動的生成）
 const sampleButtonsEl = document.getElementById('sample-buttons');
@@ -158,11 +217,17 @@ Object.entries(SAMPLE_SCORES).forEach(([key, sample]) => {
     btn.addEventListener('click', async () => {
         errorEl.hidden = true;
         try {
-            const json = await loadSampleScore(key);
-            handleData(json);
+            if (sample.confirm) {
+                // PDF読み取りのお試し：原本のPDFと、読み取った結果のダミーで確認画面を開く
+                const { file, data } = await loadConfirmSample(sample);
+                await openConfirm(file, data);
+            } else {
+                const json = await loadSampleScore(key);
+                state.hasConfirm = false;
+                handleData(json);
+            }
         } catch (err) {
-            errorEl.textContent = 'サンプルの読み込みに失敗しました。';
-            errorEl.hidden = false;
+            showUploadError('サンプルの読み込みに失敗しました。');
         }
     });
     sampleButtonsEl.appendChild(btn);
@@ -173,14 +238,15 @@ Object.entries(navButtons).forEach(([num, btn]) => {
     btn.addEventListener('click', () => {
         if (btn.disabled) return;
         const target = Number(num);
-        if (target === 3 && state.data) showScore();
+        if (target === STEP.SCORE && state.data) showScore();
         else showStep(target);
     });
 });
 
 // 戻るボタン
-document.getElementById('btn-back-upload').addEventListener('click', () => showStep(1));
-document.getElementById('btn-back-tuning').addEventListener('click', () => showStep(2));
+document.getElementById('btn-back-upload').addEventListener('click', () => showStep(STEP.UPLOAD));
+document.getElementById('btn-confirm-back').addEventListener('click', () => showStep(STEP.UPLOAD));
+document.getElementById('btn-back-tuning').addEventListener('click', () => showStep(STEP.TUNING));
 
 // 調弦切替プルダウン
 document.getElementById('tuning-switcher').addEventListener('change', (e) => {

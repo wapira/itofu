@@ -19,7 +19,7 @@
         <span>箏</span>
       </div>
       <div class="header-titles">
-        <p class="header-sub">五線譜（MusicXML）より伝統糸譜を自動生成</p>
+        <p class="header-sub">五線譜（MusicXML・PDF・画像）より伝統糸譜を自動生成</p>
         <h1>和楽譜・糸譜変換器</h1>
       </div>
       <div class="hanko-seal" aria-hidden="true">糸譜<br>生成</div>
@@ -35,11 +35,16 @@
     </button>
     <span class="step-divider">―◆―</span>
     <button type="button" class="step-pill" id="nav-step-2" data-step="2" disabled>
+      <span class="step-kanji">検</span>
+      <span class="step-label">楽譜の確認</span>
+    </button>
+    <span class="step-divider">―◆―</span>
+    <button type="button" class="step-pill" id="nav-step-3" data-step="3" disabled>
       <span class="step-kanji">破</span>
       <span class="step-label">調弦案の比較</span>
     </button>
     <span class="step-divider">―◆―</span>
-    <button type="button" class="step-pill" id="nav-step-3" data-step="3" disabled>
+    <button type="button" class="step-pill" id="nav-step-4" data-step="4" disabled>
       <span class="step-kanji">急</span>
       <span class="step-label">糸譜の表示・印刷</span>
     </button>
@@ -50,19 +55,22 @@
     <section id="screen-upload" class="wa-panel active">
       <div class="panel-header">
         <span class="chapter-badge">序の章</span>
-        <h2>五線譜データ（MusicXML）を納める</h2>
-        <p class="panel-desc">お手持ちの <code>.musicxml</code> または <code>.xml</code> ファイルを選択してください。<!--すべての解析はお使いのブラウザ内のみで完結します。--></p>
+        <h2>五線譜（MusicXML・PDF・画像）を納める</h2>
+        <p class="panel-desc">お手持ちの <code>.musicxml</code> / <code>.xml</code> ファイル、または印刷された五線譜の <code>.pdf</code> / <code>.png</code> / <code>.jpg</code> を選択してください。PDF・画像は読み取ったあと、原本と見比べて確かめられます。<!--すべての解析はお使いのブラウザ内のみで完結します。--></p>
       </div>
 
-      <div id="drop-zone" class="washi-dropzone" tabindex="0" role="button" aria-label="MusicXMLファイルをアップロード">
+      <div id="drop-zone" class="washi-dropzone" tabindex="0" role="button" aria-label="楽譜ファイルをアップロード">
         <div class="dropzone-corner tl"></div>
         <div class="dropzone-corner tr"></div>
         <div class="dropzone-corner bl"></div>
         <div class="dropzone-corner br"></div>
         <div class="dropzone-icon">🎼</div>
-        <p class="dropzone-main">ここに MusicXML ファイルをドラッグ＆ドロップ</p>
-        <p class="dropzone-sub">またはクリックして端末からファイルを選択（.xml / .musicxml）</p>
-        <input type="file" id="file-input" accept=".xml,.musicxml,text/xml,application/xml" hidden>
+        <p class="dropzone-main">ここに楽譜ファイルをドラッグ＆ドロップ</p>
+        <p class="dropzone-sub">またはクリックして端末からファイルを選択（.xml / .musicxml / .pdf / .png / .jpg）</p>
+        <input type="file" id="file-input" accept=".xml,.musicxml,.pdf,.png,.jpg,.jpeg,text/xml,application/xml,application/pdf,image/png,image/jpeg" hidden>
+      </div>
+      <div class="upload-cancel-row" id="upload-cancel-row" hidden>
+        <button type="button" id="btn-upload-cancel" class="wa-btn wa-btn-ghost">読み取りをやめる</button>
       </div>
 
       <div id="upload-error" class="error-banner" hidden></div>
@@ -74,6 +82,81 @@
         <div id="sample-buttons" class="sample-buttons">
           <!-- SAMPLE_SCORES から JS で動的生成 -->
         </div>
+      </div>
+    </section>
+
+    <!-- ==================== 検の章：読み取った楽譜を確かめる画面（PDF・画像のときだけ） ==================== -->
+    <section id="screen-confirm" class="wa-panel wa-panel-wide" hidden>
+      <div class="panel-header">
+        <span class="chapter-badge">検の章</span>
+        <h2>読み取った楽譜を確かめる</h2>
+        <p class="panel-desc">左の原本と右の五線譜を見比べてください。違う音は、クリックして選び、下のボタンで直せます。</p>
+      </div>
+
+      <p id="confirm-summary" class="confirm-summary"></p>
+
+      <div class="confirm-grid">
+        <!-- 左：原本 -->
+        <div class="confirm-pane">
+          <div class="confirm-pane-head">
+            <h3>原本</h3>
+            <div class="confirm-zoom">
+              <button type="button" id="btn-zoom-out" class="tool-btn" aria-label="縮小">－</button>
+              <button type="button" id="btn-zoom-in" class="tool-btn" aria-label="拡大">＋</button>
+            </div>
+          </div>
+          <div class="confirm-scroll">
+            <div id="confirm-original" class="confirm-original"></div>
+          </div>
+        </div>
+
+        <!-- 右：読み取った五線譜（編集できる） -->
+        <div class="confirm-pane">
+          <div class="confirm-pane-head">
+            <h3>読み取った五線譜</h3>
+            <p id="confirm-selection" class="confirm-selection"></p>
+          </div>
+
+          <div class="edit-toolbar" role="toolbar" aria-label="音符の編集">
+            <div class="tool-group">
+              <button type="button" class="tool-btn" data-op="undo" title="元に戻す（Ctrl+Z）">↶ 戻す</button>
+              <button type="button" class="tool-btn" data-op="redo" title="やり直す（Ctrl+Y）">↷ やり直す</button>
+            </div>
+            <div class="tool-group">
+              <button type="button" class="tool-btn" data-op="up" title="1音上げる（↑）">▲ 上げる</button>
+              <button type="button" class="tool-btn" data-op="down" title="1音下げる（↓）">▼ 下げる</button>
+              <button type="button" class="tool-btn tool-symbol" data-op="sharp" title="♯">♯</button>
+              <button type="button" class="tool-btn tool-symbol" data-op="flat" title="♭">♭</button>
+              <button type="button" class="tool-btn tool-symbol" data-op="natural" title="♮（記号なし）">♮</button>
+            </div>
+            <div class="tool-group">
+              <button type="button" class="tool-btn" data-op="dur" data-dur="16" title="16分音符（3）">16分</button>
+              <button type="button" class="tool-btn" data-op="dur" data-dur="8" title="8分音符（4）">8分</button>
+              <button type="button" class="tool-btn" data-op="dur" data-dur="q" title="4分音符（5）">4分</button>
+              <button type="button" class="tool-btn" data-op="dur" data-dur="h" title="2分音符（6）">2分</button>
+              <button type="button" class="tool-btn" data-op="dur" data-dur="w" title="全音符（7）">全</button>
+              <button type="button" class="tool-btn" data-op="dot" title="付点（.）">付点</button>
+            </div>
+            <div class="tool-group">
+              <button type="button" class="tool-btn" data-op="rest" title="休符にする／音符に戻す（0）">休符</button>
+              <button type="button" class="tool-btn" data-op="tie" title="次の音とタイでつなぐ（T）">タイ</button>
+              <button type="button" class="tool-btn" data-op="insert" title="うしろに同じ音を足す">＋ 足す</button>
+              <button type="button" class="tool-btn" data-op="delete" title="消す（Delete）。音符は休符になる">消す</button>
+            </div>
+          </div>
+
+          <div id="confirm-notation-scroll" class="confirm-scroll confirm-scroll-notation">
+            <div id="confirm-notation" class="confirm-notation"></div>
+          </div>
+          <p class="confirm-keys">キー操作：← → 選ぶ ／ ↑ ↓ 高さ ／ 3〜7 長さ（16分〜全音符） ／ . 付点 ／ 0 休符 ／ T タイ ／ Delete 消す ／ Ctrl+Z 戻す</p>
+        </div>
+      </div>
+
+      <div id="confirm-error" class="error-banner" hidden></div>
+
+      <div class="panel-actions confirm-actions">
+        <button type="button" id="btn-confirm-back" class="wa-btn wa-btn-ghost">← 別の楽譜を選ぶ</button>
+        <button type="button" id="btn-confirm-submit" class="wa-btn wa-btn-vermilion">これで糸譜を作る →</button>
       </div>
     </section>
 

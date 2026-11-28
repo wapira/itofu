@@ -26,6 +26,14 @@ export const SAMPLE_SCORES = {
         icon: '',
         file: 'sample.json',
     },
+    // PDF読み取りのお試し：原本の PDF と、読み取った結果のダミー（確認画面のJSON）。
+    // ダミーは3小節目に読み間違いを1つ入れてある（最後の音が4分音符→8分音符）
+    sakuraPdf: {
+        title: 'さくら（PDF読み取りのお試し）',
+        icon: '📄',
+        pdf: 'sample-sakura.pdf',
+        confirm: 'sample-confirm.json',
+    },
     /*
     sakura: {
         title: 'さくらさくら',

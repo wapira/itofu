@@ -1,0 +1,88 @@
+{
+  "title": "さくらさくら",
+  "composer": "日本古謡",
+  "tempo": 80,
+  "time": {"beats": 4, "beatType": 4},
+  "keySharps": 0,
+  "suspiciousMeasures": [2],
+  "measures": [
+    { "notes": [
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "h", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "h", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "C", "alter": 0, "octave": 5}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "8", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "F", "alter": 0, "octave": 4}, "dur": "h", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "C", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "F", "alter": 0, "octave": 4}, "dur": "q", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "C", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 3}, "dur": "h", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "C", "alter": 0, "octave": 5}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "q", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "F", "alter": 0, "octave": 4}, "dur": "h", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "C", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "F", "alter": 0, "octave": 4}, "dur": "q", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "C", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 3}, "dur": "h", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "h", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "h", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "F", "alter": 0, "octave": 4}, "dur": "q", "dots": 0},
+      {"pitch": {"step": "B", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "A", "alter": 0, "octave": 4}, "dur": "8", "dots": 0},
+      {"pitch": {"step": "F", "alter": 0, "octave": 4}, "dur": "q", "dots": 0}
+    ] },
+    { "notes": [
+      {"pitch": {"step": "E", "alter": 0, "octave": 4}, "dur": "w", "dots": 0}
+    ] }
+  ]
+}
