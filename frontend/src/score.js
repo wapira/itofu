@@ -1,7 +1,12 @@
 /**                                                                                                                                  
  * 急の章 — 糸譜の描画                                                                                                               
  */                                                                                                                                  
-import { KOTO_STRING_NAMES, MEASURES_PER_COLUMN } from './constants.js';
+import {
+    KOTO_STRING_NAMES,
+    MEASURES_PER_COLUMN,
+    COLUMNS_PER_PAGE,
+    FIRST_PAGE_COLUMNS,
+} from './constants.js';
 
 
 /**
@@ -70,11 +75,35 @@ function updatePillar(data, candidate) {
     metaEl.appendChild(desc);
 }
 
-/** 糸譜グリッドを描画 */
+/**
+ * 糸譜グリッドを描画する。
+ * 1ページ目（曲名の柱あり）は FIRST_PAGE_COLUMNS 行、
+ * 2ページ目からは COLUMNS_PER_PAGE 行ずつに分ける。
+ */
 function renderGrid(measures) {
-    const gridEl = document.getElementById('tatefu-grid');
-    gridEl.innerHTML = '';
+    const columns = buildColumns(measures);
 
+    // 1ページ目：HTML にある枠（#tatefu-grid）に入れる
+    const firstGrid = document.getElementById('tatefu-grid');
+    firstGrid.innerHTML = '';
+    columns.slice(0, FIRST_PAGE_COLUMNS).forEach((col) => firstGrid.appendChild(col));
+
+    // 2ページ目以降：前に作ったページを消してから作り直す
+    const paper = document.getElementById('tatefu-paper');
+    paper.querySelectorAll('.tatefu-page-extra').forEach((el) => el.remove());
+    const legend = paper.querySelector('.tatefu-legend');
+
+    for (let i = FIRST_PAGE_COLUMNS; i < columns.length; i += COLUMNS_PER_PAGE) {
+        const page = createExtraPage(legend);
+        const grid = page.querySelector('.tatefu-grid');
+        columns.slice(i, i + COLUMNS_PER_PAGE).forEach((col) => grid.appendChild(col));
+        paper.appendChild(page);
+    }
+}
+
+/** 小節を MEASURES_PER_COLUMN ずつ1行（縦の列）にまとめた要素を返す */
+function buildColumns(measures) {
+    const columns = [];
     for (let i = 0; i < measures.length; i += MEASURES_PER_COLUMN) {
         const chunk = measures.slice(i, i + MEASURES_PER_COLUMN);
         const colEl = document.createElement('div');
@@ -100,8 +129,30 @@ function renderGrid(measures) {
             colEl.appendChild(mDiv);
         });
 
-        gridEl.appendChild(colEl);
+        columns.push(colEl);
     }
+    return columns;
+}
+
+/** 曲名の柱がない2ページ目以降の枠を作る */
+function createExtraPage(legend) {
+    const outer = document.createElement('div');
+    outer.className = 'tatefu-outer-frame tatefu-page tatefu-page-extra';
+
+    const inner = document.createElement('div');
+    inner.className = 'tatefu-inner-frame';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tatefu-columns-wrapper';
+
+    const grid = document.createElement('div');
+    grid.className = 'tatefu-grid';
+
+    wrapper.appendChild(grid);
+    inner.appendChild(wrapper);
+    outer.appendChild(inner);
+    if (legend) outer.appendChild(legend.cloneNode(true));
+    return outer;
 }
 
 /**
@@ -116,6 +167,8 @@ function renderGrid(measures) {
 function renderBeat(beat) {
     const cell = document.createElement('div');
     cell.className = 'beat-cell';
+    // マスの大きさは一定。音が多いほど CSS で小さく詰めて表示する
+    cell.dataset.count = Math.min(beat.length, 5);
 
     beat.forEach((note) => {
         if (note.rest) {

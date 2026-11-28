@@ -12,8 +12,8 @@
       "oshiCount": 2,
       "tuning": ["E", "A", "B", "C", "E", "F", "A", "B", "C", "E", "F", "A", "B"],
       "measures": [
-        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
-        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九", "oshi": "ヲ" } ], [ { "string": "八" } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六", "oshi": "オ" } ], [ { "rest": true } ] ]
       ]
@@ -26,8 +26,8 @@
       "oshiCount": 1,
       "tuning": ["E", "A", "B", "C", "E", "G", "A", "B", "C", "E", "F", "A", "B"],
       "measures": [
-        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
-        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九", "oshi": "ヲ" } ], [ { "string": "八" } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六" } ], [ { "rest": true } ] ]
       ]
@@ -40,8 +40,8 @@
       "oshiCount": 0,
       "tuning": ["E", "A", "B", "C", "E", "G", "A", "B", "C#", "E", "F", "A", "B"],
       "measures": [
-        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
-        [ [ { "string": "七" } ], [ { "string": "七", "repeat": true } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
+        [ [ { "string": "七" } ], [ { "string": "七" } ], [ { "string": "八" } ], [ { "rest": true } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" } ], [ { "string": "九" } ], [ { "string": "八" } ] ],
         [ [ { "string": "七" } ], [ { "string": "八" }, { "string": "七" } ], [ { "string": "六" } ], [ { "rest": true } ] ]
       ]

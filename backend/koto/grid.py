@@ -15,7 +15,8 @@
   - 伸ばしと休みは区別しない。同じマスの中で続くときは1つの △ にまとめる
   - 音が1つも始まらない拍は ⊙（△△ のような拍も ⊙）
   - ⊙ は「、」にしない。続くときは ⊙⊙ と書く
-  - 直前の音と同じ弦・同じ押し手なら repeat（「、」）。休符をはさんだらリセット
+  - 同じ弦・同じ押し手の音が3回以上続いたら、2回目から repeat（「、」）。
+    2回だけなら両方そのまま書く。休符をはさんだら数え直す
 """
 import math
 
@@ -25,6 +26,9 @@ EPS = 1e-6
 
 FULL_REST = {"rest": True, "short": False}
 SHORT_REST = {"rest": True, "short": True}
+
+# 同じ音がこの回数以上続いたときだけ「、」を使う
+REPEAT_MIN = 3
 
 
 def build_grid(notes: list[Note], assignments: list[Assignment | None],
@@ -41,6 +45,14 @@ def build_grid(notes: list[Note], assignments: list[Assignment | None],
     ]
 
     previous: Assignment | None = None  # 「、」判定用：直前に弾いた音
+    run: list[dict] = []                # 「、」判定用：同じ音が続いている要素
+
+    def close_run():
+        if len(run) >= REPEAT_MIN:
+            for it in run[1:]:
+                it["repeat"] = True
+        run.clear()
+
     for note, assignment in zip(notes, assignments):
         beat = math.floor(note.offset + EPS)
         row = cells[note.measure]
@@ -51,17 +63,22 @@ def build_grid(notes: list[Note], assignments: list[Assignment | None],
             starts_on_beat = abs(note.offset - beat) < EPS
             full = starts_on_beat and note.beats >= 1 - EPS
             item = dict(FULL_REST if full else SHORT_REST)
+            close_run()
             previous = None
         else:
             if assignment is None:
                 raise ValueError("音なのに弦の割り当てがありません")
-            repeat = (previous is not None
-                      and previous.string == assignment.string
-                      and previous.oshi == assignment.oshi)
+            same = (previous is not None
+                    and previous.string == assignment.string
+                    and previous.oshi == assignment.oshi)
+            if not same:
+                close_run()
             item = {"string": assignment.string, "oshi": assignment.oshi,
-                    "repeat": repeat}
+                    "repeat": False}
+            run.append(item)
             previous = assignment
         row[beat].append((note.offset, item))
+    close_run()
 
     grid = []
     for m_index, row in enumerate(cells):

@@ -582,6 +582,11 @@ body {
   min-height: 520px;
 }
 
+/* ページ（1ページ目＝曲名の柱あり、2ページ目以降＝柱なし） */
+.tatefu-page + .tatefu-page {
+  margin-top: 1.25rem;
+}
+
 /* 右端の縦書き曲名柱 */
 .tatefu-title-pillar {
   width: 140px /*96px*/;
@@ -779,7 +784,10 @@ body {
 
 /* ---------------- 糸譜：1拍1マスのセル ---------------- */
 .beat-cell {
-  min-height: 36px;
+  /* 1拍のマスはすべて同じ大きさ。音が多い拍は中で詰めて表示する */
+  height: 36px;
+  box-sizing: border-box;
+  overflow: hidden;
   border-bottom: 1px dotted #d8d0be;
   display: flex;
   flex-direction: column;
@@ -790,6 +798,20 @@ body {
   color: var(--ink-sumi);
   position: relative;
   padding: 2px 0;
+}
+
+/* 1マスに音が2つ以上あるときは、文字を小さく・行間を詰める */
+.beat-cell[data-count="2"] { font-size: 0.82rem; padding: 0; }
+.beat-cell[data-count="3"] { font-size: 0.66rem; padding: 0; }
+.beat-cell[data-count="4"] { font-size: 0.52rem; padding: 0; }
+.beat-cell[data-count="5"] { font-size: 0.42rem; padding: 0; }
+.beat-cell:not([data-count="1"]) .beat-note,
+.beat-cell:not([data-count="1"]) > span {
+  line-height: 1;
+  font-size: inherit;
+}
+.beat-cell:not([data-count="1"]) .oshi-mark {
+  font-size: 0.75em;
 }
 
 .beat-cell:last-child {
@@ -903,5 +925,16 @@ body {
 
   .tatefu-columns-wrapper {
     overflow: visible !important;
+  }
+
+  /* 1ページずつ紙を分ける */
+  .tatefu-page {
+    break-after: page;
+  }
+  .tatefu-page:last-child {
+    break-after: auto;
+  }
+  .tatefu-page + .tatefu-page {
+    margin-top: 0;
   }
 }
