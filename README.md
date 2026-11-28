@@ -104,6 +104,31 @@ backendフォルダをコンテナの/appと共有しています。Pythonコー
 
 フロントのソースとnpm依存はイメージに含めています。フロントのファイルを変更した場合は再ビルドが必要です。ホストのnode_modulesや.envはイメージにコピーしません。
 
+### Windowsで起動する・改行エラーを防ぐ
+
+Docker DesktopをLinuxコンテナモードで起動し、PowerShellでリポジトリのフォルダへ移動して実行します。WindowsにJava・Audiveris・Python・Node.jsを個別インストールする必要はありません。
+
+```powershell
+docker compose up --build -d
+```
+
+通常画面は `http://localhost:5173`、APIドキュメントは `http://localhost:8000/docs` です。
+`audiveris.sh` はWindows側では直接実行せず、Docker内のLinuxで実行します。
+
+WindowsのGit設定によって `.sh` がCRLF改行になると、`/bin/sh^M: bad interpreter`、`not found`、`exec ... no such file or directory` などで起動できない場合があります。
+リポジトリの `.gitattributes` で `*.sh text eol=lf` を指定し、シェルスクリプトをLFで取得するようにしています（[Git公式の改行属性の説明](https://git-scm.com/docs/gitattributes)）。さらにDockerビルド時にも、コピーした起動スクリプトのCRLF・UTF-8 BOMを取り除いてから実行します。実行権限は `COPY --chmod=755` で設定します。
+
+CRLF改行とUTF-8 BOMを含むスクリプトを使ったDockerビルド・Audiveris起動の再現テストは成功しています。Windows実機での動作確認は未実施です。
+
+既存の作業フォルダにCRLFのスクリプトが残っていても、更新後のDockerfileで再ビルドすればコンテナ内の実行ファイルは正規化されます。共有ブランチの変更を取り込んだあと、次を実行してください。作業途中の変更がある場合は先にコミットまたは一時退避します。
+
+```powershell
+git pull
+docker compose up --build -d
+```
+
+Dockerを使わずMac上でバックエンドを起動する手順は、下の追加説明です。WindowsでDockerを使う場合はMac用の `/Applications/...` パスを設定しません。
+
 ### チームの更新を取り込む
 
 作業途中の変更はコミットするか一時退避してから、共有するブランチで実行します。

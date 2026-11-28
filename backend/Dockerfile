@@ -53,7 +53,10 @@ ENV JAVA_HOME=/opt/java/openjdk \
     AUDIVERIS_BIN=/usr/local/bin/audiveris \
     AUDIVERIS_HEAP=2g \
     TESSDATA_PREFIX=/opt/tessdata
-RUN java -version && audiveris -help >/dev/null
+# Git checkouts or ZIP downloads on Windows may contain CRLF (or a UTF-8 BOM).
+# Normalize the installed executable before the Linux kernel reads its shebang.
+RUN python -c "from pathlib import Path; p = Path('/usr/local/bin/audiveris'); p.write_text(p.read_text(encoding='utf-8-sig'), encoding='utf-8', newline='\n')" \
+    && java -version && audiveris -help >/dev/null
 COPY . ./
 EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
